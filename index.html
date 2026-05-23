@@ -166,11 +166,21 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
 
     <!-- RESUMO ANUAL -->
     <div style="font-size:11px;font-weight:600;color:#546E7A;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Resumo anual 2026 — Jan a Dez</div>
-    <div class="metrics" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:.5rem;">
+    <div class="metrics" style="grid-template-columns:repeat(5,minmax(0,1fr));margin-bottom:.5rem;">
       <div class="mc"><div class="mc-label">Gasto total no ano</div><div class="mc-value" id="an-gasto" style="color:#1565C0;">—</div><div class="mc-sub" id="an-periodos" style="color:#546E7A;"></div></div>
-      <div class="mc"><div class="mc-label">Meta total no ano</div><div class="mc-value" id="an-meta" style="color:#546E7A;">—</div><div class="mc-sub" style="color:#546E7A;">12 meses × meta</div></div>
-      <div class="mc"><div class="mc-label">Saldo anual</div><div class="mc-value" id="an-saldo">—</div><div class="mc-sub" id="an-saldo-sub"></div></div>
+      <div class="mc"><div class="mc-label">Meta total anual</div><div class="mc-value" id="an-meta" style="color:#546E7A;">—</div><div class="mc-sub" id="an-meta-sub" style="color:#546E7A;">12 meses × meta</div></div>
+      <div class="mc" style="border:1.5px solid #2E7D32;"><div class="mc-label">Saldo disponível</div><div class="mc-value" id="an-saldo">—</div><div class="mc-sub" id="an-saldo-sub"></div></div>
+      <div class="mc" style="border:1.5px solid #1565C0;"><div class="mc-label">Teto por mês restante</div><div class="mc-value" id="an-teto-mes" style="color:#1565C0;">—</div><div class="mc-sub" id="an-teto-sub" style="color:#546E7A;"></div></div>
       <div class="mc"><div class="mc-label">H. totais no ano</div><div class="mc-value" id="an-horas" style="color:#2E7D32;">—</div><div class="mc-sub" style="color:#546E7A;">todas as horas extras</div></div>
+    </div>
+
+    <!-- DISTRIBUIÇÃO MENSAL -->
+    <div class="section" style="margin-bottom:1.25rem;">
+      <div class="sh">
+        <span class="st">Distribuição do orçamento — mês a mês 2026</span>
+        <span style="font-size:12px;color:#546E7A;">quanto pode gastar por mês para fechar dentro da meta anual</span>
+      </div>
+      <div style="padding:.9rem 1.1rem;" id="dist-mensal"></div>
     </div>
 
     <!-- BARRA ANUAL -->
@@ -180,7 +190,7 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
     </div>
 
     <!-- GRÁFICO + CARGO -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.25rem;">
       <div class="section">
         <div class="sh"><span class="st">Custo por colaborador</span></div>
         <div style="padding:.9rem 1.1rem;" id="grafico"></div>
@@ -189,6 +199,23 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
         <div class="sh"><span class="st">Resumo por cargo</span></div>
         <div style="padding:0 1.1rem .9rem;" id="resumo-cargo"></div>
       </div>
+    </div>
+
+    <!-- ANÁLISE POR CATEGORIA -->
+    <div style="font-size:11px;font-weight:600;color:#546E7A;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Gastos por categoria de função — período ativo</div>
+    <div id="categ-cards" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:1.25rem;"></div>
+
+    <div class="section" style="margin-bottom:1.25rem;">
+      <div class="sh">
+        <span class="st">Horas extras por categoria</span>
+        <span style="font-size:12px;color:#546E7A;">comparativo H.50% · H.100% · Noturna</span>
+      </div>
+      <div style="padding:.9rem 1.1rem;" id="categ-grafico"></div>
+    </div>
+
+    <div class="section">
+      <div class="sh"><span class="st">Detalhamento por colaborador e categoria</span></div>
+      <div style="overflow-x:auto;" id="categ-tabela"></div>
     </div>
   </div>
 
@@ -396,6 +423,40 @@ var nextPeriodoId = 2;
 var periodoAtivo = 1;
 var historico = [];
 
+// Utilitário global de formatação de horas
+function fmtH(h){
+  if(!h||h<=0) return '0h';
+  var hh=Math.floor(h);
+  var mm=Math.round((h-hh)*60);
+  return hh+'h'+(mm>0?mm+'m':'');
+}
+
+// Calcula meta anual dinamicamente — soma metaVigente de cada período lançado
+// + META_GLOBAL × meses restantes (redistribuição automática)
+function calcMetaAnual(){
+  var gastoAcum=0;
+  var metaPeriosLancados=0;
+  periodos.forEach(function(pp){
+    gastoAcum+=getTotalPeriodo(pp);
+    metaPeriosLancados+=pp.metaVigente||getMeta(pp);
+  });
+  var mesesLancados=periodos.length;
+  var mesesRestantes=Math.max(0,12-mesesLancados);
+  // Meta total = meses lançados com meta original + meses restantes com meta atual
+  var metaTotalAnual=metaPeriosLancados+(META_GLOBAL*mesesRestantes);
+  var saldoAnual=metaTotalAnual-gastoAcum;
+  var tetoPorMes=mesesRestantes>0?saldoAnual/mesesRestantes:0;
+  return {
+    gastoAcum:gastoAcum,
+    metaPeriosLancados:metaPeriosLancados,
+    mesesLancados:mesesLancados,
+    mesesRestantes:mesesRestantes,
+    metaTotalAnual:metaTotalAnual,
+    saldoAnual:saldoAnual,
+    tetoPorMes:tetoPorMes
+  };
+}
+
 var colaboradores = [
   {id:1,  nome:"Adriano Antonio de Sousa",      cargo:"Tec. Predial Pleno",          sal:4159.00},
   {id:2,  nome:"Alex de Freitas Alves",          cargo:"Tec. Refrigeração Sênior",    sal:5356.29},
@@ -497,7 +558,6 @@ function render(){
     // fallback: se hTot não foi preenchido, soma as três
     if(totHTot===0) totHTot=totH50+totH100+totHNot;
   }
-  function fmtH(h){var hh=Math.floor(h);var mm=Math.round((h-hh)*60);return hh+'h'+(mm>0?mm+'m':'');}
   var mh50=document.getElementById('m-h50');if(mh50)mh50.textContent=fmtH(totH50);
   var mh100=document.getElementById('m-h100');if(mh100)mh100.textContent=fmtH(totH100);
   var mhnot=document.getElementById('m-hnot');if(mhnot)mhnot.textContent=fmtH(totHNot);
@@ -508,44 +568,52 @@ function render(){
   // ===== CÁLCULO ANUAL CORRETO =====
   // Cada período usa sua própria meta vigente (metaVigente salva no momento da criação)
   // Meses sem período usam a meta atual para projeção
-  var anoGasto=0,anoMetaReal=0,anoH50=0,anoH100=0,anoHNot=0,anoHTot=0;
-  var nPeriodos=periodos.length;
-  var mesesComDados=nPeriodos;
-  var mesesSemDados=12-mesesComDados;
-  if(mesesSemDados<0) mesesSemDados=0;
-
+  // ===== RESUMO ANUAL — usa calcMetaAnual() dinâmico =====
+  var ma=calcMetaAnual();
+  var anoH50=0,anoH100=0,anoHNot=0,anoHTot=0;
   periodos.forEach(function(pp){
-    anoGasto+=getTotalPeriodo(pp);
-    // Usa metaVigente salva no período, ou meta específica, ou global
-    var metaUsada=pp.metaVigente||getMeta(pp);
-    anoMetaReal+=metaUsada;
     colaboradores.forEach(function(c){
       var l=getLanc(pp,c.id);
       if(l){anoH50+=hms(l.h50);anoH100+=hms(l.h100);anoHNot+=hms(l.hNot);anoHTot+=hms(l.hTot||'0:00');}
     });
   });
   if(anoHTot===0) anoHTot=anoH50+anoH100+anoHNot;
-  // Projeção: meses ainda sem dados usam a meta atual
-  var anoMetaProjetada=anoMetaReal+(META_GLOBAL*mesesSemDados);
-  var anoSaldo=anoMetaReal-anoGasto; // saldo REAL (só períodos lançados)
 
-  var ag=document.getElementById('an-gasto');if(ag)ag.textContent=brl(anoGasto);
-  var ap=document.getElementById('an-periodos');if(ap)ap.textContent=nPeriodos+' período'+(nPeriodos!==1?'s':'')+' lançados de 12';
+  var ag=document.getElementById('an-gasto');if(ag)ag.textContent=brl(ma.gastoAcum);
+  var ap=document.getElementById('an-periodos');if(ap)ap.textContent=ma.mesesLancados+' de 12 períodos lançados';
   var am2=document.getElementById('an-meta');
   if(am2){
-    am2.textContent=brl(anoMetaReal);
-    // Atualizar legenda do card
-    var amSub=am2.nextElementSibling;
-    if(amSub) amSub.textContent='meta real dos '+nPeriodos+' período'+(nPeriodos!==1?'s':'')+' (projeção anual: '+brl(anoMetaProjetada)+')';
+    am2.textContent=brl(ma.metaTotalAnual);
+    var amSub=document.getElementById('an-meta-sub');
+    if(amSub){
+      if(ma.mesesLancados>0&&ma.metaPeriosLancados!==(META_GLOBAL*ma.mesesLancados)){
+        amSub.textContent='períodos anteriores preservados + '+ma.mesesRestantes+' meses a '+brl(META_GLOBAL);
+      } else {
+        amSub.textContent='12 meses × '+brl(META_GLOBAL)+' (redistribuído automaticamente)';
+      }
+    }
   }
   var as=document.getElementById('an-saldo');
-  if(as){as.textContent=brl(Math.abs(anoSaldo));as.style.color=anoSaldo>=0?'#2E7D32':'#C62828';}
+  if(as){
+    as.textContent=brl(Math.abs(ma.saldoAnual));
+    as.style.color=ma.saldoAnual>=0?'#2E7D32':'#C62828';
+  }
   var ass=document.getElementById('an-saldo-sub');
   if(ass){
-    ass.textContent=anoSaldo>=0?'economizado (períodos lançados)':'excedido (períodos lançados)';
-    ass.style.color=anoSaldo>=0?'#2E7D32':'#C62828';
+    ass.textContent=ma.saldoAnual>=0?'disponível para gastar no ano':'excedido no ano';
+    ass.style.color=ma.saldoAnual>=0?'#2E7D32':'#C62828';
   }
   var ah=document.getElementById('an-horas');if(ah)ah.textContent=fmtH(anoHTot);
+  var atm=document.getElementById('an-teto-mes');
+  if(atm){
+    atm.textContent=ma.mesesRestantes>0?brl(ma.tetoPorMes):'Ano completo';
+    atm.style.color=ma.tetoPorMes>=0?'#1565C0':'#C62828';
+  }
+  var atms=document.getElementById('an-teto-sub');
+  if(atms) atms.textContent=ma.mesesRestantes+' meses restantes · atualiza ao mudar meta';
+
+  // Render distribuição mensal com dados dinâmicos
+  renderDistribuicaoAnual(ma.gastoAcum,ma.metaTotalAnual,ma.saldoAnual,ma.tetoPorMes,ma.mesesLancados);
 
   // ===== GRÁFICO ANUAL =====
   var meses12=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -640,6 +708,9 @@ function render(){
       '<span class="'+badgeClass(c.custo)+'">'+brl(c.custo)+'</span></div>';
   });
   document.getElementById('resumo-cargo').innerHTML=rc;
+
+  // Categorias
+  renderCategorias();
 
   // Simulador
   document.getElementById('sim-gasto-lbl').textContent=brl(total);
@@ -978,6 +1049,241 @@ document.querySelectorAll('.overlay').forEach(function(ov){
 });
 
 // ===== ANÁLISE IA =====
+function getCategoriaLabel(cargo){
+  var c=cargo.toLowerCase();
+  if(c.indexOf('refriger')>=0) return 'Refrigeração';
+  if(c.indexOf('predial')>=0) return 'Predial';
+  if(c.indexOf('eletromec')>=0) return 'Eletromecânico';
+  return cargo.split(' ')[1]||cargo;
+}
+
+function getCategoriaConfig(cat){
+  var configs={
+    'Refrigeração':{cor:'#1565C0',bg:'#E3F2FD',borda:'#90CAF9',icone:'❄'},
+    'Predial':     {cor:'#E65100',bg:'#FFF3E0',borda:'#FFCC80',icone:'🏗'},
+    'Eletromecânico':{cor:'#6A1B9A',bg:'#F3E5F5',borda:'#CE93D8',icone:'⚡'},
+  };
+  return configs[cat]||{cor:'#546E7A',bg:'#ECEFF1',borda:'#CFD8DC',icone:'👷'};
+}
+
+function renderCategorias(){
+  var p=getPeriodo(periodoAtivo);
+  if(!p){
+    ['categ-cards','categ-grafico','categ-tabela'].forEach(function(id){
+      var el=document.getElementById(id);
+      if(el) el.innerHTML='<div class="empty">Nenhum período ativo.</div>';
+    });
+    return;
+  }
+
+  // Agrupar colaboradores por categoria
+  var cats={};
+  colaboradores.forEach(function(c){
+    var cat=getCategoriaLabel(c.cargo);
+    if(!cats[cat]) cats[cat]={colaboradores:[],custo:0,h50:0,h100:0,hNot:0,hTot:0,qtd:0};
+    var l=getLanc(p,c.id);
+    var custo=getCustoCol(p,c);
+    var h50d=l?hms(l.h50):0;
+    var h100d=l?hms(l.h100):0;
+    var hNotd=l?hms(l.hNot):0;
+    var hTotd=h50d+h100d+hNotd;
+    cats[cat].colaboradores.push({c:c,custo:custo,h50:h50d,h100:h100d,hNot:hNotd,hTot:hTotd,l:l});
+    cats[cat].custo+=custo;
+    cats[cat].h50+=h50d;
+    cats[cat].h100+=h100d;
+    cats[cat].hNot+=hNotd;
+    cats[cat].hTot+=hTotd;
+    cats[cat].qtd++;
+  });
+
+  var meta=getMeta(p);
+  var totalGeral=getTotalPeriodo(p);
+  var catArr=Object.keys(cats).map(function(k){return{nome:k,dados:cats[k]};});
+  catArr.sort(function(a,b){return b.dados.custo-a.dados.custo;});
+
+  // === CARDS ===
+  var cardsH='';
+  catArr.forEach(function(ct){
+    var cfg=getCategoriaConfig(ct.nome);
+    var d=ct.dados;
+    var pctMeta=meta>0?(d.custo/meta*100):0;
+    var pctTotal=totalGeral>0?(d.custo/totalGeral*100):0;
+    cardsH+='<div style="background:'+cfg.bg+';border:1px solid '+cfg.borda+';border-radius:10px;padding:1rem;">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'+
+        '<div style="font-size:14px;font-weight:700;color:'+cfg.cor+';">'+cfg.icone+' '+ct.nome+'</div>'+
+        '<span style="font-size:11px;color:'+cfg.cor+';background:#fff;padding:2px 8px;border-radius:10px;font-weight:600;">'+d.qtd+' técnico'+(d.qtd!==1?'s':'')+'</span>'+
+      '</div>'+
+      '<div style="font-size:22px;font-weight:700;color:'+cfg.cor+';margin-bottom:4px;">'+brl(d.custo)+'</div>'+
+      '<div style="height:6px;background:#fff;border-radius:3px;overflow:hidden;margin-bottom:8px;">'+
+        '<div style="height:100%;width:'+Math.min(pctMeta,100)+'%;background:'+cfg.cor+';border-radius:3px;"></div>'+
+      '</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;color:'+cfg.cor+';">'+
+        '<div>'+pctMeta.toFixed(1)+'% da meta</div>'+
+        '<div>'+pctTotal.toFixed(1)+'% do gasto total</div>'+
+        '<div>H.50%: <strong>'+fmtH(d.h50)+'</strong></div>'+
+        '<div>H.100%: <strong>'+fmtH(d.h100)+'</strong></div>'+
+        '<div style="grid-column:span 2;">H.Noturna: <strong>'+fmtH(d.hNot)+'</strong> &nbsp;·&nbsp; H.Total: <strong>'+fmtH(d.hTot)+'</strong></div>'+
+      '</div>'+
+    '</div>';
+  });
+  var cardsEl=document.getElementById('categ-cards');
+  if(cardsEl) cardsEl.innerHTML=cardsH;
+
+  // === GRÁFICO COMPARATIVO ===
+  var maxH=0;
+  catArr.forEach(function(ct){
+    if(ct.dados.h50>maxH) maxH=ct.dados.h50;
+    if(ct.dados.h100>maxH) maxH=ct.dados.h100;
+    if(ct.dados.hNot>maxH) maxH=ct.dados.hNot;
+  });
+  maxH=maxH||1;
+  var grafH='<div style="display:flex;flex-direction:column;gap:18px;">';
+  catArr.forEach(function(ct){
+    var cfg=getCategoriaConfig(ct.nome);
+    var d=ct.dados;
+    function barraLinha(label,val,cor){
+      var w=(val/maxH*100).toFixed(1);
+      return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">'+
+        '<div style="width:70px;font-size:11px;color:#546E7A;text-align:right;">'+label+'</div>'+
+        '<div style="flex:1;height:18px;background:#ECEFF1;border-radius:3px;overflow:hidden;">'+
+          '<div style="height:100%;width:'+w+'%;background:'+cor+';border-radius:3px;"></div>'+
+        '</div>'+
+        '<div style="width:55px;font-size:11px;font-weight:600;color:'+cor+';">'+fmtH(val)+'</div>'+
+      '</div>';
+    }
+    grafH+='<div>'+
+      '<div style="font-size:13px;font-weight:700;color:'+cfg.cor+';margin-bottom:6px;">'+cfg.icone+' '+ct.nome+' — Total: '+fmtH(d.hTot)+' · '+brl(d.custo)+'</div>'+
+      barraLinha('H. 50%',d.h50,cfg.cor)+
+      barraLinha('H. 100%',d.h100,'#C62828')+
+      barraLinha('Noturna',d.hNot,'#546E7A')+
+    '</div>';
+  });
+  grafH+='</div>';
+  var grafEl=document.getElementById('categ-grafico');
+  if(grafEl) grafEl.innerHTML=grafH;
+
+  // === TABELA DETALHADA ===
+  var tabH='<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+  tabH+='<thead><tr>'+
+    '<th style="text-align:left;padding:8px 11px;border-bottom:1px solid #CFD8DC;background:#FAFBFC;font-size:11px;color:#546E7A;text-transform:uppercase;">Colaborador</th>'+
+    '<th style="text-align:left;padding:8px 11px;border-bottom:1px solid #CFD8DC;background:#FAFBFC;font-size:11px;color:#546E7A;text-transform:uppercase;">Categoria</th>'+
+    '<th style="text-align:right;padding:8px 11px;border-bottom:1px solid #CFD8DC;background:#FAFBFC;font-size:11px;color:#546E7A;text-transform:uppercase;">H. 50%</th>'+
+    '<th style="text-align:right;padding:8px 11px;border-bottom:1px solid #CFD8DC;background:#FAFBFC;font-size:11px;color:#546E7A;text-transform:uppercase;">H. 100%</th>'+
+    '<th style="text-align:right;padding:8px 11px;border-bottom:1px solid #CFD8DC;background:#FAFBFC;font-size:11px;color:#546E7A;text-transform:uppercase;">H. Noturna</th>'+
+    '<th style="text-align:right;padding:8px 11px;border-bottom:1px solid #CFD8DC;background:#FAFBFC;font-size:11px;color:#546E7A;text-transform:uppercase;">H. Total</th>'+
+    '<th style="text-align:right;padding:8px 11px;border-bottom:1px solid #CFD8DC;background:#FAFBFC;font-size:11px;color:#546E7A;text-transform:uppercase;">Custo</th>'+
+    '<th style="text-align:right;padding:8px 11px;border-bottom:1px solid #CFD8DC;background:#FAFBFC;font-size:11px;color:#546E7A;text-transform:uppercase;">% da meta</th>'+
+    '</tr></thead><tbody>';
+
+  catArr.forEach(function(ct){
+    var cfg=getCategoriaConfig(ct.nome);
+    // Linha de subtítulo da categoria
+    tabH+='<tr style="background:'+cfg.bg+';">'+
+      '<td colspan="8" style="padding:7px 11px;font-weight:700;color:'+cfg.cor+';font-size:12px;">'+cfg.icone+' '+ct.nome+' — subtotal: '+brl(ct.dados.custo)+' · '+fmtH(ct.dados.hTot)+'</td>'+
+    '</tr>';
+    // Linhas dos colaboradores
+    ct.dados.colaboradores.sort(function(a,b){return b.custo-a.custo;}).forEach(function(item){
+      var pct=meta>0?(item.custo/meta*100):0;
+      var corCusto=item.custo===0?'#B0BEC5':item.custo>500?'#C62828':item.custo>300?'#E65100':'#2E7D32';
+      tabH+='<tr style="background:'+(item.custo===0?'#FAFBFC':'#fff')+';">'+
+        '<td style="padding:8px 11px;font-weight:500;color:'+(item.custo===0?'#90A4AE':'#1a1a2e')+';">'+item.c.nome+'</td>'+
+        '<td style="padding:8px 11px;font-size:11px;color:'+cfg.cor+';font-weight:600;">'+ct.nome+'</td>'+
+        '<td style="padding:8px 11px;text-align:right;">'+fmtH(item.h50)+'</td>'+
+        '<td style="padding:8px 11px;text-align:right;">'+fmtH(item.h100)+'</td>'+
+        '<td style="padding:8px 11px;text-align:right;">'+fmtH(item.hNot)+'</td>'+
+        '<td style="padding:8px 11px;text-align:right;font-weight:600;">'+fmtH(item.hTot)+'</td>'+
+        '<td style="padding:8px 11px;text-align:right;"><span style="font-weight:600;color:'+corCusto+';">'+brl(item.custo)+'</span></td>'+
+        '<td style="padding:8px 11px;text-align:right;color:'+corCusto+';font-weight:600;">'+pct.toFixed(1)+'%</td>'+
+      '</tr>';
+    });
+  });
+
+  // Total geral
+  tabH+='<tr style="background:#F0F4FF;border-top:2px solid #CFD8DC;">'+
+    '<td colspan="2" style="padding:9px 11px;font-weight:700;">TOTAL GERAL</td>'+
+    '<td style="padding:9px 11px;text-align:right;font-weight:700;">'+fmtH(catArr.reduce(function(s,ct){return s+ct.dados.h50;},0))+'</td>'+
+    '<td style="padding:9px 11px;text-align:right;font-weight:700;">'+fmtH(catArr.reduce(function(s,ct){return s+ct.dados.h100;},0))+'</td>'+
+    '<td style="padding:9px 11px;text-align:right;font-weight:700;">'+fmtH(catArr.reduce(function(s,ct){return s+ct.dados.hNot;},0))+'</td>'+
+    '<td style="padding:9px 11px;text-align:right;font-weight:700;">'+fmtH(catArr.reduce(function(s,ct){return s+ct.dados.hTot;},0))+'</td>'+
+    '<td style="padding:9px 11px;text-align:right;font-weight:700;color:#1565C0;">'+brl(totalGeral)+'</td>'+
+    '<td style="padding:9px 11px;text-align:right;font-weight:700;color:#1565C0;">'+(meta>0?(totalGeral/meta*100).toFixed(1)+'%':'—')+'</td>'+
+  '</tr>';
+  tabH+='</tbody></table>';
+  var tabEl=document.getElementById('categ-tabela');
+  if(tabEl) tabEl.innerHTML=tabH;
+}
+
+function renderDistribuicaoAnual(anoGasto,anoMeta,saldoRestante,tetoPorMes,nPeriodos){
+  var div=document.getElementById('dist-mensal');
+  if(!div) return;
+  var meses=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  var h='';
+
+  // Linha de status geral
+  var statusCor=saldoRestante>=0?'#2E7D32':'#C62828';
+  var statusMsg=saldoRestante>=0
+    ?'Saldo disponível de '+brl(saldoRestante)+' para os próximos '+(12-nPeriodos)+' meses. Teto ideal por mês: '+brl(tetoPorMes)+'.'
+    :'Atenção: meta anual excedida em '+brl(Math.abs(saldoRestante))+'. Considere reduzir horas nos próximos meses.';
+  h+='<div style="background:'+(saldoRestante>=0?'#E8F5E9':'#FFEBEE')+';border-radius:8px;padding:10px 14px;font-size:13px;color:'+statusCor+';font-weight:600;margin-bottom:14px;">'+statusMsg+'</div>';
+
+  h+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px;">';
+  h+='<thead><tr>'+
+    '<th style="text-align:left;padding:7px 10px;border-bottom:1px solid #CFD8DC;color:#546E7A;font-size:11px;text-transform:uppercase;">Mês</th>'+
+    '<th style="text-align:right;padding:7px 10px;border-bottom:1px solid #CFD8DC;color:#546E7A;font-size:11px;text-transform:uppercase;">Gasto real</th>'+
+    '<th style="text-align:right;padding:7px 10px;border-bottom:1px solid #CFD8DC;color:#546E7A;font-size:11px;text-transform:uppercase;">Meta vigente</th>'+
+    '<th style="text-align:right;padding:7px 10px;border-bottom:1px solid #CFD8DC;color:#546E7A;font-size:11px;text-transform:uppercase;">Teto sugerido</th>'+
+    '<th style="text-align:right;padding:7px 10px;border-bottom:1px solid #CFD8DC;color:#546E7A;font-size:11px;text-transform:uppercase;">Saldo do mês</th>'+
+    '<th style="padding:7px 10px;border-bottom:1px solid #CFD8DC;color:#546E7A;font-size:11px;text-transform:uppercase;width:140px;">Status</th>'+
+    '</tr></thead><tbody>';
+
+  for(var i=0;i<12;i++){
+    var pp=periodos[i]||null;
+    var gasto=pp?getTotalPeriodo(pp):0;
+    // Meta vigente: usa a salva no período (histórica) ou META_GLOBAL para futuros
+    var metaVig=pp?(pp.metaVigente||getMeta(pp)):META_GLOBAL;
+    // Teto sugerido: para meses lançados = metaVigente, para futuros = redistribuição do saldo
+    var teto=pp?metaVig:(tetoPorMes>0?tetoPorMes:META_GLOBAL);
+    var saldoMes=teto-gasto;
+    var lancado=!!pp;
+    var cor,bg,status;
+    if(!lancado){
+      cor='#546E7A';bg='#FAFBFC';status='Não lançado';
+    } else if(gasto===0){
+      cor='#546E7A';bg='#FAFBFC';status='Sem horas';
+    } else if(gasto>metaVig){
+      cor='#C62828';bg='#FFF5F5';status='⚠ Meta excedida';
+    } else if(gasto>metaVig*0.8){
+      cor='#E65100';bg='#FFFBF5';status='⚡ Acima de 80%';
+    } else {
+      cor='#2E7D32';bg='#F5FFF7';status='✓ Dentro da meta';
+    }
+
+    h+='<tr style="background:'+bg+';">'+
+      '<td style="padding:8px 10px;font-weight:'+(lancado?'600':'400')+';color:'+(lancado?'#1a1a2e':'#90A4AE')+';">'+meses[i]+(pp?' <span style="font-size:10px;color:#546E7A;">('+pp.nome+')</span>':' <span style="font-size:10px;color:#B0BEC5;">aguardando</span>')+'</td>'+
+      '<td style="padding:8px 10px;text-align:right;font-weight:600;color:'+(gasto>0?cor:'#B0BEC5')+'">'+(gasto>0?brl(gasto):'—')+'</td>'+
+      '<td style="padding:8px 10px;text-align:right;color:#546E7A;">'+brl(metaVig)+'</td>'+
+      '<td style="padding:8px 10px;text-align:right;color:#1565C0;font-weight:600;">'+(teto>0?brl(teto):'—')+'</td>'+
+      '<td style="padding:8px 10px;text-align:right;font-weight:600;color:'+(saldoMes>=0&&lancado?'#2E7D32':'#C62828')+'">'+
+        (lancado?brl(saldoMes):'—')+
+      '</td>'+
+      '<td style="padding:8px 10px;"><span style="font-size:11px;font-weight:600;color:'+cor+';">'+status+'</span></td>'+
+      '</tr>';
+  }
+
+  // Linha de totais
+  h+='<tr style="background:#F0F4FF;border-top:2px solid #CFD8DC;">'+
+    '<td style="padding:9px 10px;font-weight:700;">TOTAL ANUAL</td>'+
+    '<td style="padding:9px 10px;text-align:right;font-weight:700;color:'+(anoGasto>anoMeta?'#C62828':'#1565C0')+';">'+brl(anoGasto)+'</td>'+
+    '<td style="padding:9px 10px;text-align:right;font-weight:700;color:#546E7A;">'+brl(anoMeta)+'</td>'+
+    '<td style="padding:9px 10px;text-align:right;font-weight:700;color:#1565C0;">'+brl(anoMeta)+'</td>'+
+    '<td style="padding:9px 10px;text-align:right;font-weight:700;color:'+(saldoRestante>=0?'#2E7D32':'#C62828')+';">'+brl(saldoRestante)+'</td>'+
+    '<td style="padding:9px 10px;font-weight:700;color:'+(saldoRestante>=0?'#2E7D32':'#C62828')+';">'+(saldoRestante>=0?'✓ No controle':'⚠ Excedido')+'</td>'+
+    '</tr>';
+
+  h+='</tbody></table></div>';
+  div.innerHTML=h;
+}
+
 function renderTendencias(){
   var div=document.getElementById('ia-tendencias');
   if(!div) return;
@@ -1105,20 +1411,33 @@ async function rodarIA(){
   });
 
   var nomePeriodo=p?p.nome:'atual';
+  var maIA=calcMetaAnual();
+  var anoMetaIA=maIA.metaTotalAnual;
+  var anoGastoIA=maIA.gastoAcum;
+  var anoSaldoIA=maIA.saldoAnual;
+  var mesesRestIA=maIA.mesesRestantes;
+  var tetoPorMesIA=maIA.tetoPorMes;
   var prompt=[
     'Você é um gestor especialista em controle de horas extras industriais. Analise os dados e responda em português, direto e objetivo.',
-    'PERÍODO: '+nomePeriodo,
-    'META: R$'+meta.toFixed(2),
+    '--- PERÍODO ATUAL: '+nomePeriodo+' ---',
+    'META DO PERÍODO: R$'+meta.toFixed(2),
     'GASTO ATUAL: R$'+total.toFixed(2),
-    'SALDO RESTANTE: R$'+saldo.toFixed(2)+(saldo<0?' (META EXCEDIDA)':''),
-    'COLABORADORES:',
+    'SALDO DO PERÍODO: R$'+saldo.toFixed(2)+(saldo<0?' (META EXCEDIDA)':''),
+    '--- VISÃO ANUAL 2026 ---',
+    'META ANUAL: R$'+anoMetaIA.toFixed(2)+' (12 x R$'+META_GLOBAL.toFixed(2)+')',
+    'GASTO ACUMULADO NO ANO: R$'+anoGastoIA.toFixed(2),
+    'SALDO DISPONÍVEL NO ANO: R$'+anoSaldoIA.toFixed(2),
+    'MESES RESTANTES NO ANO: '+mesesRestIA,
+    'TETO IDEAL POR MÊS (para fechar dentro da meta anual): R$'+tetoPorMesIA.toFixed(2),
+    '--- COLABORADORES DO PERÍODO ---',
     linhas.join(' | '),
-    'Responda com estas 4 seções:',
-    '1. SITUAÇÃO GERAL: como está o período (1 parágrafo)',
-    '2. PODE ESCALAR (top 3): menor custo/hora e menor % da meta - nome, horas disponíveis no saldo e motivo',
-    '3. EVITAR ESCALAR (top 3): alto custo ou muitas horas - nome e motivo',
-    '4. RECOMENDAÇÃO FINAL: o que fazer para fechar dentro da meta.',
-    'Use nomes, valores em R$ e horas. Máximo 300 palavras.'
+    'Responda com estas 5 seções:',
+    '1. SITUAÇÃO DO PERÍODO: como está o mês atual vs meta',
+    '2. SITUAÇÃO ANUAL: análise do saldo do ano e se o ritmo atual é sustentável',
+    '3. PODE ESCALAR AGORA (top 3): nome, custo/hora, horas que cabem no saldo do período e do ano',
+    '4. EVITAR ESCALAR (top 3): nome e motivo',
+    '5. RECOMENDAÇÃO: o que fazer para fechar o mês E o ano dentro da meta',
+    'Use nomes, valores em R$ e horas. Máximo 350 palavras.'
   ].join('\n');
 
   btn.disabled=true;
