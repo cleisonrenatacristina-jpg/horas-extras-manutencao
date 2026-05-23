@@ -1383,7 +1383,7 @@ function renderStatusColaboradores(){
   div.innerHTML=h;
 }
 
-async function rodarIA(){
+function rodarIA(){
   var btn=document.getElementById('btn-ia');
   var resultado=document.getElementById('ia-resultado');
   var badge=document.getElementById('ia-status-badge');
@@ -1391,91 +1391,150 @@ async function rodarIA(){
   var meta=getMeta(p);
   var total=p?getTotalPeriodo(p):0;
   var saldo=meta-total;
+  var ma=calcMetaAnual();
 
-  // Atualizar nome do período
   var nomeEl=document.getElementById('ia-periodo-nome');
   if(nomeEl) nomeEl.textContent=p?p.nome:'—';
 
   renderStatusColaboradores();
   renderTendencias();
 
-  // Montar contexto para a IA
-  var linhas=[];
-  colaboradores.forEach(function(c){
+  if(btn){btn.textContent='Analisando...';btn.disabled=true;}
+  if(badge){badge.textContent='Processando...';badge.style.background='#E3F2FD';badge.style.color='#1565C0';}
+
+  // ===== ANÁLISE LOCAL — sem API externa =====
+  // Monta análise inteligente com as regras do negócio
+
+  // 1. Classificar colaboradores
+  var cols=colaboradores.map(function(c){
     var l=p?getLanc(p,c.id):null;
     var custo=getCustoCol(p,c);
-    var hTot=l?(hms(l.h50)+hms(l.h100)+hms(l.hNot)):0;
-    var pctMeta=meta>0?(custo/meta*100):0;
+    var h50d=l?hms(l.h50):0;
+    var h100d=l?hms(l.h100):0;
+    var hNotd=l?hms(l.hNot):0;
+    var hTot=h50d+h100d+hNotd;
     var vh=c.sal/220;
-    linhas.push('- '+c.nome+' ('+c.cargo+'): '+hTot.toFixed(1)+'h totais, custo R$'+custo.toFixed(2)+' ('+pctMeta.toFixed(1)+'% da meta), VH50%=R$'+( vh*1.05).toFixed(2)+'/h, VH100%=R$'+(vh*2.10).toFixed(2)+'/h');
+    var custoH50=vh*1.05;
+    var custoH100=vh*2.10;
+    var pctMeta=meta>0?(custo/meta*100):0;
+    var hDisp50=saldo>0?Math.floor(saldo/custoH50*10)/10:0;
+    var hDisp100=saldo>0?Math.floor(saldo/custoH100*10)/10:0;
+    return {c:c,custo:custo,hTot:hTot,h50:h50d,h100:h100d,hNot:hNotd,
+            custoH50:custoH50,custoH100:custoH100,hDisp50:hDisp50,hDisp100:hDisp100,pctMeta:pctMeta};
   });
 
-  var nomePeriodo=p?p.nome:'atual';
-  var maIA=calcMetaAnual();
-  var anoMetaIA=maIA.metaTotalAnual;
-  var anoGastoIA=maIA.gastoAcum;
-  var anoSaldoIA=maIA.saldoAnual;
-  var mesesRestIA=maIA.mesesRestantes;
-  var tetoPorMesIA=maIA.tetoPorMes;
-  var prompt=[
-    'Você é um gestor especialista em controle de horas extras industriais. Analise os dados e responda em português, direto e objetivo.',
-    '--- PERÍODO ATUAL: '+nomePeriodo+' ---',
-    'META DO PERÍODO: R$'+meta.toFixed(2),
-    'GASTO ATUAL: R$'+total.toFixed(2),
-    'SALDO DO PERÍODO: R$'+saldo.toFixed(2)+(saldo<0?' (META EXCEDIDA)':''),
-    '--- VISÃO ANUAL 2026 ---',
-    'META ANUAL: R$'+anoMetaIA.toFixed(2)+' (12 x R$'+META_GLOBAL.toFixed(2)+')',
-    'GASTO ACUMULADO NO ANO: R$'+anoGastoIA.toFixed(2),
-    'SALDO DISPONÍVEL NO ANO: R$'+anoSaldoIA.toFixed(2),
-    'MESES RESTANTES NO ANO: '+mesesRestIA,
-    'TETO IDEAL POR MÊS (para fechar dentro da meta anual): R$'+tetoPorMesIA.toFixed(2),
-    '--- COLABORADORES DO PERÍODO ---',
-    linhas.join(' | '),
-    'Responda com estas 5 seções:',
-    '1. SITUAÇÃO DO PERÍODO: como está o mês atual vs meta',
-    '2. SITUAÇÃO ANUAL: análise do saldo do ano e se o ritmo atual é sustentável',
-    '3. PODE ESCALAR AGORA (top 3): nome, custo/hora, horas que cabem no saldo do período e do ano',
-    '4. EVITAR ESCALAR (top 3): nome e motivo',
-    '5. RECOMENDAÇÃO: o que fazer para fechar o mês E o ano dentro da meta',
-    'Use nomes, valores em R$ e horas. Máximo 350 palavras.'
-  ].join('\n');
+  // Ordenar por custo/hora (mais barato = mais disponível)
+  var podeEscalar=cols.filter(function(x){return x.pctMeta<40;})
+    .sort(function(a,b){return a.custoH50-b.custoH50;}).slice(0,3);
+  var evitar=cols.filter(function(x){return x.pctMeta>=40||x.hTot>30;})
+    .sort(function(a,b){return b.custo-a.custo;}).slice(0,3);
 
-  btn.disabled=true;
-  btn.textContent='Analisando...';
-  badge.textContent='Processando...';
-  badge.style.background='#E3F2FD';
-  badge.style.color='#1565C0';
-  resultado.innerHTML='<div style="color:#1565C0;padding:1rem 0;">Aguarde, a IA está analisando os dados do período...</div>';
+  // Análise por categoria
+  var cats={};
+  colaboradores.forEach(function(c){
+    var cat=getCategoriaLabel(c.cargo);
+    if(!cats[cat]){cats[cat]={custo:0,hTot:0,qtd:0};}
+    cats[cat].custo+=getCustoCol(p,c);
+    var l=p?getLanc(p,c.id):null;
+    if(l){cats[cat].hTot+=hms(l.h50)+hms(l.h100)+hms(l.hNot);}
+    cats[cat].qtd++;
+  });
+  var catTop=Object.keys(cats).sort(function(a,b){return cats[b].custo-cats[a].custo;});
 
-  try{
-    var resp=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1000,
-        messages:[{role:'user',content:prompt}]
-      })
-    });
-    var data=await resp.json();
-    var texto=data.content&&data.content[0]?data.content[0].text:'Não foi possível obter análise.';
-    // Formatar o texto com seções
-    texto=texto.split('\n\n').join('</p><p style="margin-bottom:12px;">');
-    texto=texto.split('\n').join('<br>');
-    texto=texto.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
-    texto=texto.replace(/([1-4]\. [A-ZÁÉÍÓÚÇÃÕ ]+:)/g,'<strong style="color:#1565C0;">$1</strong>');
-    resultado.innerHTML='<p style="margin-bottom:12px;">'+texto+'</p>';
-    badge.textContent='✓ Análise concluída';
-    badge.style.background='#E8F5E9';
-    badge.style.color='#2E7D32';
-  }catch(err){
-    resultado.innerHTML='<div style="color:#C62828;">Erro ao conectar com a IA. Verifique sua conexão e tente novamente.<br><small>'+err.message+'</small></div>';
-    badge.textContent='Erro';
-    badge.style.background='#FFEBEE';
-    badge.style.color='#C62828';
+  // 2. Montar texto de análise
+  var linhas=[];
+
+  // Cabeçalho situacional
+  linhas.push('<div style="background:'+(saldo>=0?'#E8F5E9':'#FFEBEE')+';border-radius:8px;padding:10px 14px;margin-bottom:14px;font-weight:600;color:'+(saldo>=0?'#2E7D32':'#C62828')+';">');
+  if(saldo>=0){
+    linhas.push('✅ SITUAÇÃO DO PERÍODO: Dentro do orçamento. Gasto de '+brl(total)+' de '+brl(meta)+'. Saldo restante: '+brl(saldo)+'.');
+  } else {
+    linhas.push('⚠️ SITUAÇÃO DO PERÍODO: Meta excedida! Gasto de '+brl(total)+' supera a meta de '+brl(meta)+' em '+brl(Math.abs(saldo))+'.');
   }
-  btn.disabled=false;
-  btn.textContent='🤖 Analisar novamente';
+  linhas.push('</div>');
+
+  // Situação anual
+  linhas.push('<div style="background:#E3F2FD;border-radius:8px;padding:10px 14px;margin-bottom:14px;color:#1565C0;">');
+  linhas.push('<strong>📊 VISÃO ANUAL 2026:</strong> Meta anual: '+brl(ma.metaTotalAnual)+
+    ' | Gasto acumulado: '+brl(ma.gastoAcum)+
+    ' | <strong>Saldo disponível no ano: '+brl(ma.saldoAnual)+'</strong>'+
+    ' | Teto ideal por mês ('+ma.mesesRestantes+' meses restantes): <strong>'+brl(ma.tetoPorMes)+'</strong>');
+  if(ma.tetoPorMes < ma.tetoPorMes*0.8){
+    linhas.push(' ⚠️ O ritmo atual está acima do teto ideal — considere reduzir horas nos próximos meses.');
+  }
+  linhas.push('</div>');
+
+  // Categoria com mais custo
+  if(catTop.length>0){
+    linhas.push('<div style="margin-bottom:14px;">');
+    linhas.push('<strong>🏭 ANÁLISE POR CATEGORIA:</strong><br>');
+    catTop.forEach(function(cat){
+      var d=cats[cat];
+      var pct=meta>0?(d.custo/meta*100):0;
+      var cfg=getCategoriaConfig(cat);
+      linhas.push('<span style="color:'+cfg.cor+';">'+cfg.icone+' '+cat+':</span> '+brl(d.custo)+
+        ' ('+pct.toFixed(1)+'% da meta) — '+fmtH(d.hTot)+' de horas, '+d.qtd+' técnico'+(d.qtd!==1?'s':'')+'<br>');
+    });
+    linhas.push('</div>');
+  }
+
+  // Pode escalar
+  linhas.push('<div style="background:#F0FFF4;border-radius:8px;padding:10px 14px;margin-bottom:14px;border-left:3px solid #2E7D32;">');
+  linhas.push('<strong style="color:#2E7D32;">✅ PODE ESCALAR (menor custo/hora e menor uso da meta):</strong><br><br>');
+  if(podeEscalar.length===0){
+    linhas.push('<span style="color:#546E7A;">Saldo insuficiente ou todos com alto uso da meta.</span>');
+  } else {
+    podeEscalar.forEach(function(x,i){
+      var dispAnual=ma.saldoAnual>0?Math.floor(ma.saldoAnual/x.custoH50*10)/10:0;
+      linhas.push((i+1)+'. <strong>'+x.c.nome+'</strong> ('+x.c.cargo+')<br>');
+      linhas.push('&nbsp;&nbsp;&nbsp;• VH 50%: '+brl(x.custoH50)+'/h | VH 100%: '+brl(x.custoH100)+'/h<br>');
+      linhas.push('&nbsp;&nbsp;&nbsp;• Uso atual: '+x.pctMeta.toFixed(1)+'% da meta | Horas lançadas: '+fmtH(x.hTot)+'<br>');
+      if(saldo>0){
+        linhas.push('&nbsp;&nbsp;&nbsp;• Cabe ainda neste período: <strong>'+x.hDisp50.toFixed(1)+'h a 50%</strong> ou <strong>'+x.hDisp100.toFixed(1)+'h a 100%</strong><br>');
+      }
+      linhas.push('&nbsp;&nbsp;&nbsp;• Margem no ano: <strong>até '+dispAnual.toFixed(1)+'h a 50%</strong><br><br>');
+    });
+  }
+  linhas.push('</div>');
+
+  // Evitar escalar
+  linhas.push('<div style="background:#FFF5F5;border-radius:8px;padding:10px 14px;margin-bottom:14px;border-left:3px solid #C62828;">');
+  linhas.push('<strong style="color:#C62828;">⛔ EVITAR ESCALAR (alto custo ou muitas horas):</strong><br><br>');
+  if(evitar.length===0){
+    linhas.push('<span style="color:#546E7A;">Nenhum colaborador com uso crítico da meta.</span>');
+  } else {
+    evitar.forEach(function(x,i){
+      linhas.push((i+1)+'. <strong>'+x.c.nome+'</strong> — uso '+x.pctMeta.toFixed(1)+'% da meta | '+fmtH(x.hTot)+' horas | custo '+brl(x.custo)+'<br>');
+    });
+  }
+  linhas.push('</div>');
+
+  // Recomendação final
+  linhas.push('<div style="background:#F0F4FF;border-radius:8px;padding:10px 14px;border-left:3px solid #1565C0;">');
+  linhas.push('<strong style="color:#1565C0;">💡 RECOMENDAÇÃO FINAL:</strong><br>');
+  var rec=[];
+  if(saldo<0){
+    rec.push('A meta deste período já foi excedida em '+brl(Math.abs(saldo))+'. Evite autorizar novas horas extras até o próximo período.');
+  } else if(saldo<meta*0.2){
+    rec.push('Saldo restante baixo ('+brl(saldo)+'). Priorize apenas escalamentos críticos.');
+  } else {
+    rec.push('Ainda há '+brl(saldo)+' disponíveis neste período. Use preferencialmente os técnicos de menor custo/hora.');
+  }
+  if(ma.saldoAnual>0 && ma.tetoPorMes<META_GLOBAL*0.8){
+    rec.push('O orçamento anual está comprometido. O teto ideal por mês caiu para '+brl(ma.tetoPorMes)+'. Planeje os próximos meses com esse limite.');
+  } else if(ma.saldoAnual>0){
+    rec.push('No ano, ainda há '+brl(ma.saldoAnual)+' disponíveis distribuídos em '+ma.mesesRestantes+' meses ('+brl(ma.tetoPorMes)+'/mês).');
+  }
+  if(catTop[0]&&cats[catTop[0]].custo>meta*0.5){
+    rec.push('A categoria '+catTop[0]+' está consumindo '+((cats[catTop[0]].custo/meta)*100).toFixed(0)+'% da meta. Avalie redistribuir demandas entre categorias.');
+  }
+  linhas.push(rec.join('<br>'));
+  linhas.push('</div>');
+
+  resultado.innerHTML=linhas.join('');
+
+  if(badge){badge.textContent='✓ Análise concluída';badge.style.background='#E8F5E9';badge.style.color='#2E7D32';}
+  if(btn){btn.disabled=false;btn.textContent='🤖 Analisar novamente';}
 }
 
 render();
