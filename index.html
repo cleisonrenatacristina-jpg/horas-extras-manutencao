@@ -886,9 +886,12 @@ function salvarLancamento(){
   var p=getPeriodo(periodoAtivo);
   if(!p){alert('Selecione um período.');return;}
   if(!p.lancamentos) p.lancamentos={};
+  // Salva apenas os ativos (os inativos são preservados como estão)
   colaboradores.filter(function(c){return c.ativo!==false;}).forEach(function(c){
+    var elH50=document.getElementById('li-h50-'+c.id);
+    if(!elH50) return; // card não renderizado = não atualiza
     p.lancamentos[c.id]={
-      h50:document.getElementById('li-h50-'+c.id).value.trim()||'0:00',
+      h50:elH50.value.trim()||'0:00',
       h100:document.getElementById('li-h100-'+c.id).value.trim()||'0:00',
       hNot:document.getElementById('li-hnot-'+c.id).value.trim()||'0:00',
       hTot:document.getElementById('li-htot-'+c.id).value.trim()||'0:00',
