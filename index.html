@@ -621,9 +621,19 @@ function render(){
   periodos.forEach(function(pp){var t=getTotalPeriodo(pp);if(t>maxGastoAnual)maxGastoAnual=t;});
   if(maxGastoAnual<META_GLOBAL) maxGastoAnual=META_GLOBAL;
   var ga='<div style="display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px;align-items:end;height:100px;margin-bottom:6px;">';
+  // Mapear períodos por mês real (mesmo critério da distribuição)
+  var ppPorMes12={};
+  periodos.forEach(function(pp){
+    if(pp.inicio){
+      var mi=parseInt(pp.inicio.split('-')[1],10)-1;
+      ppPorMes12[mi]=pp;
+    } else {
+      ppPorMes12[periodos.indexOf(pp)]=pp;
+    }
+  });
+
   meses12.forEach(function(m,i){
-    // Encontrar período que cobre esse mês (simplificado: usa índice)
-    var pp=periodos[i]||null;
+    var pp=ppPorMes12[i]||null;
     var gasto=pp?getTotalPeriodo(pp):0;
     var metaP=pp?getMeta(pp):META_GLOBAL;
     var h=gasto>0?Math.max(4,Math.round(gasto/maxGastoAnual*90)):3;
@@ -637,7 +647,7 @@ function render(){
   ga+='</div>';
   ga+='<div style="display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px;">';
   meses12.forEach(function(m,i){
-    var pp=periodos[i]||null;
+    var pp=ppPorMes12[i]||null;
     var gasto=pp?getTotalPeriodo(pp):0;
     var metaP=pp?getMeta(pp):META_GLOBAL;
     var cor=gasto===0?'#B0BEC5':gasto>metaP?'#C62828':gasto>metaP*0.8?'#E65100':'#2E7D32';
@@ -1236,12 +1246,24 @@ function renderDistribuicaoAnual(anoGasto,anoMeta,saldoRestante,tetoPorMes,nPeri
     '<th style="padding:7px 10px;border-bottom:1px solid #CFD8DC;color:#546E7A;font-size:11px;text-transform:uppercase;width:140px;">Status</th>'+
     '</tr></thead><tbody>';
 
+  // Mapear períodos pelo mês real da data de início
+  // Ex: inicio "2026-03-16" → mês 2 (índice 0-based = Março)
+  var periodosPorMes={};
+  periodos.forEach(function(pp){
+    if(pp.inicio){
+      var mesIdx=parseInt(pp.inicio.split('-')[1],10)-1; // 0=Jan, 11=Dez
+      periodosPorMes[mesIdx]=pp;
+    } else {
+      // Sem data: usa posição no array como fallback
+      var idx=periodos.indexOf(pp);
+      periodosPorMes[idx]=pp;
+    }
+  });
+
   for(var i=0;i<12;i++){
-    var pp=periodos[i]||null;
+    var pp=periodosPorMes[i]||null;
     var gasto=pp?getTotalPeriodo(pp):0;
-    // Meta vigente: usa a salva no período (histórica) ou META_GLOBAL para futuros
     var metaVig=pp?(pp.metaVigente||getMeta(pp)):META_GLOBAL;
-    // Teto sugerido: para meses lançados = metaVigente, para futuros = redistribuição do saldo
     var teto=pp?metaVig:(tetoPorMes>0?tetoPorMes:META_GLOBAL);
     var saldoMes=teto-gasto;
     var lancado=!!pp;
@@ -1259,7 +1281,11 @@ function renderDistribuicaoAnual(anoGasto,anoMeta,saldoRestante,tetoPorMes,nPeri
     }
 
     h+='<tr style="background:'+bg+';">'+
-      '<td style="padding:8px 10px;font-weight:'+(lancado?'600':'400')+';color:'+(lancado?'#1a1a2e':'#90A4AE')+';">'+meses[i]+(pp?' <span style="font-size:10px;color:#546E7A;">('+pp.nome+')</span>':' <span style="font-size:10px;color:#B0BEC5;">aguardando</span>')+'</td>'+
+      '<td style="padding:8px 10px;font-weight:'+(lancado?'600':'400')+';color:'+(lancado?'#1a1a2e':'#90A4AE')+';">'+
+        meses[i]+
+        (pp?' <span style="font-size:10px;color:#1565C0;font-weight:600;">('+pp.nome+')</span>':
+            ' <span style="font-size:10px;color:#B0BEC5;">aguardando</span>')+
+      '</td>'+
       '<td style="padding:8px 10px;text-align:right;font-weight:600;color:'+(gasto>0?cor:'#B0BEC5')+'">'+(gasto>0?brl(gasto):'—')+'</td>'+
       '<td style="padding:8px 10px;text-align:right;color:#546E7A;">'+brl(metaVig)+'</td>'+
       '<td style="padding:8px 10px;text-align:right;color:#1565C0;font-weight:600;">'+(teto>0?brl(teto):'—')+'</td>'+
