@@ -238,13 +238,18 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
   <div id="tab-colaboradores" class="tab-page">
     <div class="sbar">
       <input type="text" id="busca-col" placeholder="Buscar por nome ou cargo..." oninput="renderColaboradores()"/>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button class="btn-sm btn-e" id="btn-filtro-ativos" onclick="setFiltroCol('ativos')" style="font-weight:700;background:#E3F2FD;color:#1565C0;">Ativos</button>
+        <button class="btn-sm" id="btn-filtro-inativos" onclick="setFiltroCol('inativos')" style="background:#ECEFF1;color:#546E7A;">Inativos</button>
+        <button class="btn-sm" id="btn-filtro-todos" onclick="setFiltroCol('todos')" style="background:#ECEFF1;color:#546E7A;">Todos</button>
+      </div>
       <button class="btn btn-p" onclick="abrirModalColaborador(null)">+ Novo colaborador</button>
     </div>
     <div class="section">
       <div style="overflow-x:auto;">
         <table>
           <thead><tr>
-            <th>Nome</th><th>Cargo</th><th class="ta-r">Salário base</th>
+            <th>Nome</th><th>Cargo</th><th>Status</th><th class="ta-r">Salário base</th>
             <th class="ta-r">VH 50%</th><th class="ta-r">VH 100%</th><th class="ta-r">VH Noturna</th>
             <th class="ta-c">Ações</th>
           </tr></thead>
@@ -474,6 +479,17 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
       <div><label class="lbl">Nome completo</label><input id="mc-nome" placeholder="Nome completo"/></div>
       <div><label class="lbl">Cargo</label><input id="mc-cargo" placeholder="Ex: Tec. Eletromecânico Jr"/></div>
       <div><label class="lbl">Salário base (R$)</label><input id="mc-sal" type="number" step="0.01" placeholder="0,00"/></div>
+      <div>
+        <label class="lbl">Status</label>
+        <select id="mc-ativo">
+          <option value="1">✅ Ativo — aparece nos lançamentos e simulador</option>
+          <option value="0">🔴 Inativo — desligado, histórico preservado</option>
+        </select>
+      </div>
+      <div id="mc-data-desl-wrap" style="display:none;">
+        <label class="lbl">Data do desligamento</label>
+        <input type="date" id="mc-data-desl"/>
+      </div>
     </div>
     <div class="mfooter">
       <button class="btn-cancel" onclick="fecharOverlay('overlay-col')">Cancelar</button>
@@ -542,7 +558,7 @@ var colaboradores = [
 
 var periodos = [
   {
-    id:1, nome:"16/03 a 15/04", inicio:"2026-03-16", fim:"2026-04-15", meta:null, metaVigente:10000,
+    id:1, nome:"Março/Abril", inicio:"2026-03-16", fim:"2026-04-15", meta:null, metaVigente:10000,
     lancamentos:{
       1: {h50:"20:01",h100:"27:19",hNot:"00:41",hTot:"47:20",just:""},
       2: {h50:"10:41",h100:"17:40",hNot:"00:02",hTot:"28:21",just:""},
@@ -608,7 +624,7 @@ function render(){
   var pct=total/meta;
   var cor=corBar(pct);
   var pctTxt=(Math.min(pct,1)*100).toFixed(1)+'%';
-  var ativos=p?colaboradores.filter(function(c){return getCustoCol(p,c)>0;}).length:0;
+  var ativos=p?colaboradores.filter(function(c){return c.ativo!==false&&getCustoCol(p,c)>0;}).length:0;
 
   document.getElementById('hdr-periodo').textContent=p?p.nome:'—';
   var lpdash=document.getElementById('lbl-periodo-dash');
@@ -798,7 +814,7 @@ function render(){
   var sel=document.getElementById('sim-nome');
   var va=sel.value;
   sel.innerHTML='';
-  colaboradores.forEach(function(c){
+  colaboradores.filter(function(c){return c.ativo!==false;}).forEach(function(c){
     var o=document.createElement('option');
     o.value=c.id; o.textContent=c.nome;
     if(c.id==va) o.selected=true;
@@ -828,7 +844,7 @@ function renderLancar(){
   var p=getPeriodo(periodoAtivo);
   document.getElementById('lanc-titulo').textContent=p?'Lançar horas — '+p.nome:'—';
   var g='';
-  colaboradores.forEach(function(c){
+  colaboradores.filter(function(c){return c.ativo!==false;}).forEach(function(c){
     var l=p?getLanc(p,c.id):null;
     var h50=l?l.h50:'0:00', h100=l?l.h100:'0:00', hNot=l?l.hNot:'0:00', hTot=l?l.hTot:'0:00';
     var just=l?l.just:'';
@@ -870,7 +886,7 @@ function salvarLancamento(){
   var p=getPeriodo(periodoAtivo);
   if(!p){alert('Selecione um período.');return;}
   if(!p.lancamentos) p.lancamentos={};
-  colaboradores.forEach(function(c){
+  colaboradores.filter(function(c){return c.ativo!==false;}).forEach(function(c){
     p.lancamentos[c.id]={
       h50:document.getElementById('li-h50-'+c.id).value.trim()||'0:00',
       h100:document.getElementById('li-h100-'+c.id).value.trim()||'0:00',
@@ -887,26 +903,57 @@ function salvarLancamento(){
 }
 
 // ===== COLABORADORES =====
+var filtroCol='ativos'; // 'ativos' | 'inativos' | 'todos'
+
+function setFiltroCol(f){
+  filtroCol=f;
+  ['ativos','inativos','todos'].forEach(function(x){
+    var btn=document.getElementById('btn-filtro-'+x);
+    if(btn){
+      btn.style.background=x===f?'#E3F2FD':'#ECEFF1';
+      btn.style.color=x===f?'#1565C0':'#546E7A';
+      btn.style.fontWeight=x===f?'700':'400';
+    }
+  });
+  renderColaboradores();
+}
+
 function renderColaboradores(){
   var b=document.getElementById('busca-col').value.toLowerCase();
-  var lista=b?colaboradores.filter(function(c){return c.nome.toLowerCase().includes(b)||c.cargo.toLowerCase().includes(b);}):colaboradores;
+  var lista=colaboradores.filter(function(c){
+    var matchBusca=!b||(c.nome.toLowerCase().includes(b)||c.cargo.toLowerCase().includes(b));
+    var ativo=c.ativo!==false; // default true se não definido
+    var matchFiltro=filtroCol==='todos'||(filtroCol==='ativos'&&ativo)||(filtroCol==='inativos'&&!ativo);
+    return matchBusca&&matchFiltro;
+  });
   var tbody=document.getElementById('tbody-col');
   var vazia=document.getElementById('col-vazia');
-  if(!lista.length){tbody.innerHTML='';vazia.style.display='block';return;}
+  if(!lista.length){tbody.innerHTML='';vazia.style.display='block';
+    vazia.textContent=filtroCol==='inativos'?'Nenhum colaborador inativo.':'Nenhum colaborador encontrado.';
+    return;}
   vazia.style.display='none';
   var h='';
   lista.forEach(function(c){
     var vh=c.sal/220;
-    h+='<tr>'+
-      '<td style="font-weight:500;">'+c.nome+'</td>'+
+    var ativo=c.ativo!==false;
+    var rowBg=ativo?'':'#FAFBFC';
+    var nomeCor=ativo?'#1a1a2e':'#90A4AE';
+    var statusBadge=ativo
+      ?'<span style="background:#E8F5E9;color:#2E7D32;font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;">✅ Ativo</span>'
+      :'<span style="background:#FFEBEE;color:#C62828;font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;">🔴 Inativo'+(c.dataDesl?' · '+c.dataDesl.split('-').reverse().join('/'):'')+'</span>';
+    h+='<tr style="background:'+rowBg+';">'+
+      '<td style="font-weight:500;color:'+nomeCor+';">'+c.nome+'</td>'+
       '<td style="color:#546E7A;font-size:12px;">'+c.cargo+'</td>'+
-      '<td class="ta-r" style="font-weight:600;">'+brl(c.sal)+'</td>'+
-      '<td class="ta-r">'+brl2(vh*1.05)+'</td>'+
-      '<td class="ta-r">'+brl2(vh*2.10)+'</td>'+
-      '<td class="ta-r">'+brl2(vh*0.35)+'</td>'+
+      '<td>'+statusBadge+'</td>'+
+      '<td class="ta-r" style="font-weight:600;color:'+nomeCor+';">'+brl(c.sal)+'</td>'+
+      '<td class="ta-r" style="color:'+nomeCor+';">'+brl2(vh*1.05)+'</td>'+
+      '<td class="ta-r" style="color:'+nomeCor+';">'+brl2(vh*2.10)+'</td>'+
+      '<td class="ta-r" style="color:'+nomeCor+';">'+brl2(vh*0.35)+'</td>'+
       '<td class="ta-c"><span style="display:flex;gap:5px;justify-content:center;">'+
         '<button class="btn-sm btn-e" onclick="abrirModalColaborador('+c.id+')">Editar</button>'+
-        '<button class="btn-sm btn-d" onclick="excluirColaborador('+c.id+')">Excluir</button>'+
+        (ativo
+          ?'<button class="btn-sm btn-d" onclick="desativarColaborador('+c.id+')" style="background:#FFF3E0;color:#E65100;">Desativar</button>'
+          :'<button class="btn-sm btn-g" onclick="reativarColaborador('+c.id+')" style="background:#E8F5E9;color:#2E7D32;">Reativar</button>')+
       '</span></td></tr>';
   });
   tbody.innerHTML=h;
@@ -914,6 +961,11 @@ function renderColaboradores(){
 
 function abrirModalColaborador(id){
   document.getElementById('overlay-col').classList.add('show');
+  var wrap=document.getElementById('mc-data-desl-wrap');
+  var selAtivo=document.getElementById('mc-ativo');
+  selAtivo.onchange=function(){
+    if(wrap) wrap.style.display=this.value==='0'?'block':'none';
+  };
   if(id){
     var c=getCol(id);
     document.getElementById('mc-titulo').textContent='Editar colaborador';
@@ -921,24 +973,55 @@ function abrirModalColaborador(id){
     document.getElementById('mc-nome').value=c.nome;
     document.getElementById('mc-cargo').value=c.cargo;
     document.getElementById('mc-sal').value=c.sal.toFixed(2);
+    selAtivo.value=c.ativo===false?'0':'1';
+    if(wrap) wrap.style.display=c.ativo===false?'block':'none';
+    document.getElementById('mc-data-desl').value=c.dataDesl||'';
   } else {
     document.getElementById('mc-titulo').textContent='Novo colaborador';
     document.getElementById('mc-id').value='';
     ['mc-nome','mc-cargo','mc-sal'].forEach(function(i){document.getElementById(i).value='';});
+    selAtivo.value='1';
+    if(wrap) wrap.style.display='none';
+    document.getElementById('mc-data-desl').value='';
   }
 }
 
 function salvarColaborador(){
   var id=document.getElementById('mc-id').value;
-  var obj={nome:document.getElementById('mc-nome').value.trim(),cargo:document.getElementById('mc-cargo').value.trim(),sal:parseFloat(document.getElementById('mc-sal').value)||0};
+  var ativo=document.getElementById('mc-ativo').value==='1';
+  var dataDesl=document.getElementById('mc-data-desl').value||'';
+  var obj={
+    nome:document.getElementById('mc-nome').value.trim(),
+    cargo:document.getElementById('mc-cargo').value.trim(),
+    sal:parseFloat(document.getElementById('mc-sal').value)||0,
+    ativo:ativo,
+    dataDesl:ativo?'':dataDesl
+  };
   if(!obj.nome){alert('Informe o nome.');return;}
   if(id){obj.id=parseInt(id);colaboradores=colaboradores.map(function(c){return c.id===obj.id?obj:c;});}
   else{obj.id=nextColId++;colaboradores.push(obj);}
   fecharOverlay('overlay-col'); render(); renderColaboradores();
 }
 
+function desativarColaborador(id){
+  if(!confirm('Desativar este colaborador? O histórico será preservado e ele não aparecerá nos lançamentos futuros.')) return;
+  var hoje=new Date().toISOString().split('T')[0];
+  colaboradores=colaboradores.map(function(c){
+    return c.id===id?Object.assign({},c,{ativo:false,dataDesl:hoje}):c;
+  });
+  render(); renderColaboradores();
+}
+
+function reativarColaborador(id){
+  if(!confirm('Reativar este colaborador?')) return;
+  colaboradores=colaboradores.map(function(c){
+    return c.id===id?Object.assign({},c,{ativo:true,dataDesl:''}):c;
+  });
+  render(); renderColaboradores();
+}
+
 function excluirColaborador(id){
-  if(!confirm('Excluir este colaborador?')) return;
+  if(!confirm('Excluir permanentemente? Esta ação não pode ser desfeita.\nUse "Desativar" para preservar o histórico.')) return;
   colaboradores=colaboradores.filter(function(c){return c.id!==id;});
   render(); renderColaboradores();
 }
