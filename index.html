@@ -257,29 +257,95 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
 
   <!-- SIMULADOR -->
   <div id="tab-simulador" class="tab-page">
-    <div class="section" style="padding:1.25rem;">
+
+    <!-- BLOCO 1: ESCALA -->
+    <div class="section" style="padding:1.25rem;margin-bottom:1.25rem;">
       <div style="margin-bottom:1rem;">
-        <div class="st" style="margin-bottom:4px;">Simular nova autorização</div>
-        <div style="font-size:13px;color:#546E7A;">Calcule o custo real antes de autorizar. A justificativa é obrigatória.</div>
+        <div class="st" style="margin-bottom:4px;">1. Informe a escala do colaborador</div>
+        <div style="font-size:13px;color:#546E7A;">Coloque o horário de entrada, saída prevista e saída autorizada. As horas extras são calculadas automaticamente.</div>
       </div>
-      <div class="fg fg3">
-        <div><label class="lbl">Colaborador</label><select id="sim-nome" onchange="atualizarSalSim()"></select></div>
-        <div><label class="lbl">Salário base (R$)</label><input type="number" id="sim-sal" step="0.01" oninput="limparSim()"/></div>
-        <div></div>
+      <div class="fg fg3" style="margin-bottom:1rem;">
+        <div>
+          <label class="lbl">Colaborador</label>
+          <select id="sim-nome" onchange="atualizarSalSim()"></select>
+        </div>
+        <div>
+          <label class="lbl">Data da escala</label>
+          <input type="date" id="sim-data" oninput="limparSim()"/>
+        </div>
+        <div>
+          <label class="lbl">Salário base (R$)</label>
+          <input type="number" id="sim-sal" step="0.01" oninput="limparSim()"/>
+        </div>
+      </div>
+      <div class="fg fg3" style="margin-bottom:.5rem;">
+        <div>
+          <label class="lbl">Entrada <span style="color:#546E7A;font-weight:400;">horário real</span></label>
+          <input type="time" id="sim-entrada" value="06:00" oninput="calcularEscala()"/>
+        </div>
+        <div>
+          <label class="lbl">Saída prevista <span style="color:#546E7A;font-weight:400;">fim do turno</span></label>
+          <input type="time" id="sim-saida-prev" value="14:00" oninput="calcularEscala()"/>
+        </div>
+        <div>
+          <label class="lbl">Saída autorizada <span style="color:#C62828;font-weight:400;">com extra</span></label>
+          <input type="time" id="sim-saida-aut" value="16:00" oninput="calcularEscala()"/>
+        </div>
+      </div>
+
+      <!-- RESULTADO DA ESCALA -->
+      <div id="escala-resultado" style="display:none;background:#F0F4FF;border-radius:8px;padding:12px 14px;margin-bottom:1rem;border-left:3px solid #1565C0;">
+        <div style="font-size:12px;font-weight:600;color:#1565C0;margin-bottom:8px;">Horas calculadas automaticamente:</div>
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;">
+          <div style="text-align:center;">
+            <div style="font-size:11px;color:#546E7A;margin-bottom:3px;">Turno normal</div>
+            <div style="font-size:18px;font-weight:700;color:#546E7A;" id="esc-turno">—</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:11px;color:#546E7A;margin-bottom:3px;">H. Extra 50%</div>
+            <div style="font-size:18px;font-weight:700;color:#1565C0;" id="esc-h50">—</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:11px;color:#546E7A;margin-bottom:3px;">H. Extra 100%</div>
+            <div style="font-size:18px;font-weight:700;color:#E65100;" id="esc-h100">—</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:11px;color:#546E7A;margin-bottom:3px;">Custo estimado</div>
+            <div style="font-size:18px;font-weight:700;color:#2E7D32;" id="esc-custo">—</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:#546E7A;margin-top:8px;" id="esc-regra"></div>
+      </div>
+    </div>
+
+    <!-- BLOCO 2: HORAS MANUAIS (opcional) -->
+    <div class="section" style="padding:1.25rem;margin-bottom:1.25rem;">
+      <div style="margin-bottom:1rem;">
+        <div class="st" style="margin-bottom:4px;">2. Ou informe as horas manualmente</div>
+        <div style="font-size:13px;color:#546E7A;">Preencha diretamente se preferir, ou use os valores calculados pela escala acima.</div>
       </div>
       <div class="fg fg3">
         <div><label class="lbl">H. Extra 50%</label><input type="number" id="sim-h50" value="0" min="0" step="0.5" oninput="limparSim()"/></div>
         <div><label class="lbl">H. Extra 100%</label><input type="number" id="sim-h100" value="0" min="0" step="0.5" oninput="limparSim()"/></div>
         <div><label class="lbl">H. Noturna</label><input type="number" id="sim-hnot" value="0" min="0" step="0.5" oninput="limparSim()"/></div>
       </div>
+      <button class="btn btn-o btn-sm" onclick="usarHorasEscala()" style="margin-bottom:.5rem;">↑ Usar horas calculadas pela escala</button>
+    </div>
+
+    <!-- BLOCO 3: AUTORIZAÇÃO -->
+    <div class="section" style="padding:1.25rem;">
+      <div style="margin-bottom:1rem;">
+        <div class="st" style="margin-bottom:4px;">3. Autorizar</div>
+        <div style="font-size:13px;color:#546E7A;">Justificativa obrigatória. A autorização será registrada com data, horários e motivo.</div>
+      </div>
       <div style="margin-bottom:1rem;">
         <label class="lbl">Justificativa / Motivo <span style="color:#C62828;">*</span></label>
-        <textarea id="sim-just" rows="3" placeholder="Ex: Manutenção corretiva urgente. Escalonamento aprovado pela supervisão..."></textarea>
+        <textarea id="sim-just" rows="3" placeholder="Ex: Manutenção corretiva urgente no ar-condicionado do bloco A. Aprovado pela supervisão..."></textarea>
       </div>
       <div style="background:#F0F4FF;border-radius:8px;padding:9px 13px;font-size:12px;color:#1565C0;margin-bottom:1rem;">
         <strong>Fórmulas:</strong> HE 50% = (sal÷220)×1,05×h &nbsp;|&nbsp; HE 100% = (sal÷220)×2,10×h &nbsp;|&nbsp; Noturna = (sal÷220)×0,35×h
       </div>
-      <button class="btn btn-p" onclick="simular()">Calcular e registrar</button>
+      <button class="btn btn-p" onclick="simular()">✓ Validar e registrar autorização</button>
       <div class="alert aok" id="sim-ok"></div>
       <div class="alert aerr" id="sim-err"></div>
     </div>
@@ -961,6 +1027,84 @@ function salvarMeta(){
 }
 
 // ===== SIMULADOR =====
+function timeToMin(t){
+  if(!t) return 0;
+  var p=t.split(':');
+  return parseInt(p[0]||0)*60+parseInt(p[1]||0);
+}
+
+function minToHHMM(m){
+  m=Math.max(0,m);
+  var h=Math.floor(m/60);
+  var mm=m%60;
+  return h+'h'+(mm>0?(mm<10?'0':'')+mm+'m':'');
+}
+
+function calcularEscala(){
+  var entrada=timeToMin(document.getElementById('sim-entrada').value);
+  var saidaPrev=timeToMin(document.getElementById('sim-saida-prev').value);
+  var saidaAut=timeToMin(document.getElementById('sim-saida-aut').value);
+
+  // Ajustar virada de meia-noite
+  if(saidaPrev<entrada) saidaPrev+=24*60;
+  if(saidaAut<entrada) saidaAut+=24*60;
+  if(saidaAut<saidaPrev) saidaAut=saidaPrev;
+
+  var turnoMin=saidaPrev-entrada;
+  var extraTotal=saidaAut-saidaPrev;
+
+  // Regra CLT: primeiras 2h de extra = 50%, acima de 2h = 100%
+  var extra50Min=Math.min(extraTotal, 120);
+  var extra100Min=Math.max(0, extraTotal-120);
+
+  var h50=extra50Min/60;
+  var h100=extra100Min/60;
+
+  // Verificar se é noturno (22h às 5h = minutos 1320 a 300)
+  var isNoturno=(saidaAut>1320||(entrada>=0&&entrada<300));
+
+  var res=document.getElementById('escala-resultado');
+  var sal=parseFloat(document.getElementById('sim-sal').value)||0;
+  var vh=sal/220;
+  var custo=sal>0?((vh*1.05*h50)+(vh*2.10*h100)):0;
+
+  document.getElementById('esc-turno').textContent=minToHHMM(turnoMin);
+  document.getElementById('esc-h50').textContent=minToHHMM(extra50Min);
+  document.getElementById('esc-h100').textContent=extra100Min>0?minToHHMM(extra100Min):'—';
+  document.getElementById('esc-custo').textContent=sal>0?brl(custo):'Informe o salário';
+
+  var regra='Regra: até 2h extras = adicional 50%';
+  if(extra100Min>0) regra+=' | acima de 2h = adicional 100%';
+  if(isNoturno) regra+=' | ⚠ verifique adicional noturno';
+  document.getElementById('esc-regra').textContent=regra;
+
+  res.style.display='block';
+
+  // Salvar valores calculados para uso posterior
+  res.dataset.h50=h50.toFixed(4);
+  res.dataset.h100=h100.toFixed(4);
+  res.dataset.custo=custo.toFixed(2);
+
+  limparSim();
+}
+
+function usarHorasEscala(){
+  var res=document.getElementById('escala-resultado');
+  if(!res||res.style.display==='none'){
+    alert('Preencha os horários de entrada e saída primeiro.');
+    return;
+  }
+  var h50=parseFloat(res.dataset.h50)||0;
+  var h100=parseFloat(res.dataset.h100)||0;
+  document.getElementById('sim-h50').value=h50.toFixed(2);
+  document.getElementById('sim-h100').value=h100.toFixed(2);
+  document.getElementById('sim-hnot').value='0';
+  limparSim();
+  // Feedback visual
+  var btn=document.querySelector('[onclick="usarHorasEscala()"]');
+  if(btn){var orig=btn.textContent;btn.textContent='✓ Aplicado!';setTimeout(function(){btn.textContent=orig;},2000);}
+}
+
 function atualizarSalSim(){
   var id=parseInt(document.getElementById('sim-nome').value);
   var c=getCol(id);
@@ -978,6 +1122,13 @@ function simular(){
   var h50=parseFloat(document.getElementById('sim-h50').value)||0;
   var h100=parseFloat(document.getElementById('sim-h100').value)||0;
   var hNot=parseFloat(document.getElementById('sim-hnot').value)||0;
+  // Capturar dados da escala
+  var dataEscala=document.getElementById('sim-data').value||'';
+  var entrada=document.getElementById('sim-entrada').value||'';
+  var saidaPrev=document.getElementById('sim-saida-prev').value||'';
+  var saidaAut=document.getElementById('sim-saida-aut').value||'';
+  // Formatar data para exibição
+  var dataFmt=dataEscala?dataEscala.split('-').reverse().join('/'):'';
   var vh=sal/220;
   var v50=vh*1.05*h50, v100=vh*2.10*h100, vNot=vh*0.35*hNot;
   var custo=v50+v100+vNot;
@@ -990,7 +1141,14 @@ function simular(){
   elOk.style.display='none'; elErr.style.display='none';
   var agora=new Date();
   var dataStr=agora.toLocaleDateString('pt-BR')+' '+agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  var detalhe='<strong>'+(ok?'AUTORIZADO':'BLOQUEADO')+'</strong><br>'+
+  var escalaInfo='';
+  if(dataFmt&&entrada&&saidaAut){
+    escalaInfo='<br>📅 Data: <strong>'+dataFmt+'</strong> &nbsp;|&nbsp; '+
+      'Entrada: <strong>'+entrada+'</strong> &nbsp;|&nbsp; '+
+      'Saída prevista: <strong>'+saidaPrev+'</strong> &nbsp;|&nbsp; '+
+      'Saída autorizada: <strong>'+saidaAut+'</strong>';
+  }
+  var detalhe='<strong>'+(ok?'✅ AUTORIZADO':'🚫 BLOQUEADO')+'</strong>'+escalaInfo+'<br>'+
     'HE 50%: '+brl(v50)+' | HE 100%: '+brl(v100)+' | Noturna: '+brl(vNot)+'<br>'+
     'Custo desta autorização: <strong>'+brl(custo)+'</strong><br>'+
     'Gasto após autorização: <strong>'+brl(novoTotal)+'</strong><br>'+
@@ -999,6 +1157,7 @@ function simular(){
   else{elErr.innerHTML=detalhe;elErr.style.display='block';}
   historico.unshift({
     nome:col?col.nome:'—',cargo:col?col.cargo:'',periodo:p?p.nome:'—',data:dataStr,
+    dataEscala:dataFmt,entrada:entrada,saidaPrev:saidaPrev,saidaAut:saidaAut,
     h50:h50,h100:h100,hNot:hNot,v50:v50,v100:v100,vNot:vNot,custo:custo,just:just,status:ok?'autorizado':'bloqueado'
   });
   renderHistorico();
@@ -1032,6 +1191,12 @@ function renderHistorico(){
         '</div>'+
       '</div>'+
       '<div style="font-size:12px;color:#546E7A;margin-top:3px;">Horas: <strong>'+(horas||'—')+'</strong> · HE 50%: '+brl(item.v50)+' | HE 100%: '+brl(item.v100)+' | Noturna: '+brl(item.vNot)+' · Total: <strong>'+brl(item.custo)+'</strong></div>'+
+      (item.dataEscala||item.entrada?'<div style="font-size:12px;color:#1565C0;margin-top:4px;padding:5px 10px;background:#E3F2FD;border-radius:6px;">'+
+        '📅 '+( item.dataEscala||'—')+
+        (item.entrada?' &nbsp;|&nbsp; Entrada: <strong>'+item.entrada+'</strong>':'')+
+        (item.saidaPrev?' &nbsp;|&nbsp; Saída prevista: <strong>'+item.saidaPrev+'</strong>':'')+
+        (item.saidaAut?' &nbsp;|&nbsp; Saída autorizada: <strong>'+item.saidaAut+'</strong>':'')+
+      '</div>':'')+
       (item.just?'<div class="hist-just">'+item.just+'</div>':'')+
     '</div>';
   });
