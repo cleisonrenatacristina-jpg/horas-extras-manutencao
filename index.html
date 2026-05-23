@@ -16,10 +16,10 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#F0F2F5;color:#1a1a2
 .nb{padding:11px 16px;font-size:13px;font-weight:500;color:#546E7A;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;}
 .nb.active{color:#1565C0;border-bottom-color:#1565C0;font-weight:600;}
 .body{padding:1.25rem 1.5rem;max-width:1300px;margin:0 auto;}
-.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:1.25rem;}
-.mc{background:#fff;border-radius:10px;padding:1rem 1.1rem;border:1px solid #CFD8DC;}
-.mc-label{font-size:11px;color:#546E7A;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;}
-.mc-value{font-size:21px;font-weight:700;}
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:1.25rem;}
+.mc{background:#fff;border-radius:10px;padding:1rem 1.1rem;border:1px solid #CFD8DC;overflow:hidden;min-width:0;}
+.mc-label{font-size:10px;color:#546E7A;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;white-space:normal;}
+.mc-value{font-size:clamp(13px,1.8vw,18px);font-weight:700;word-break:break-word;overflow-wrap:break-word;line-height:1.25;}
 .mc-sub{font-size:12px;margin-top:3px;}
 .prog-wrap{margin-bottom:1.25rem;background:#fff;border-radius:10px;border:1px solid #CFD8DC;padding:1.1rem;}
 .prog-labels{display:flex;justify-content:space-between;font-size:12px;color:#546E7A;margin-bottom:7px;}
@@ -131,6 +131,7 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
   <button class="nb" onclick="trocarAba('simulador',this)">Simulador</button>
   <button class="nb" onclick="trocarAba('historico',this)">Histórico</button>
   <button class="nb" onclick="trocarAba('config',this)">Configurações</button>
+  <button class="nb" onclick="trocarAba('ia',this)">🤖 Análise IA</button>
 </div>
 
 <div class="body">
@@ -138,17 +139,47 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
   <!-- DASHBOARD -->
   <div id="tab-dashboard" class="tab-page active">
     <div id="alerta-meta" class="alerta-meta"></div>
+
+    <!-- MÉTRICAS DO PERÍODO -->
+    <div style="font-size:11px;font-weight:600;color:#546E7A;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;" id="lbl-periodo-dash">Período —</div>
     <div class="metrics">
       <div class="mc"><div class="mc-label">Gasto acumulado</div><div class="mc-value" id="m-gasto" style="color:#1565C0;">—</div></div>
       <div class="mc"><div class="mc-label">Saldo disponível</div><div class="mc-value" id="m-saldo">—</div><div class="mc-sub" id="m-saldo-sub"></div></div>
       <div class="mc"><div class="mc-label">Colaboradores ativos</div><div class="mc-value" id="m-ativos">—</div><div class="mc-sub" id="m-ativos-sub" style="color:#546E7A;"></div></div>
       <div class="mc"><div class="mc-label">Uso da meta</div><div class="mc-value" id="m-pct">—</div><div class="prog-bar" style="margin-top:8px;height:7px;"><div class="prog-fill" id="m-pct-bar" style="width:0%;"></div></div></div>
     </div>
+
+    <!-- HORAS DO PERÍODO -->
+    <div style="font-size:11px;font-weight:600;color:#546E7A;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Horas da equipe — período</div>
+    <div class="metrics" style="grid-template-columns:repeat(4,minmax(0,1fr));">
+      <div class="mc"><div class="mc-label">Total H. 50%</div><div class="mc-value" id="m-h50" style="color:#1565C0;">—</div><div class="mc-sub" style="color:#546E7A;">horas extras 50%</div></div>
+      <div class="mc"><div class="mc-label">Total H. 100%</div><div class="mc-value" id="m-h100" style="color:#E65100;">—</div><div class="mc-sub" style="color:#546E7A;">horas extras 100%</div></div>
+      <div class="mc"><div class="mc-label">Total H. Noturna</div><div class="mc-value" id="m-hnot" style="color:#546E7A;">—</div><div class="mc-sub" style="color:#546E7A;">horas noturnas</div></div>
+      <div class="mc"><div class="mc-label">Total H. Geral</div><div class="mc-value" id="m-htot" style="color:#2E7D32;">—</div><div class="mc-sub" style="color:#546E7A;">soma todas as horas</div></div>
+    </div>
+
     <div class="prog-wrap">
-      <div class="prog-labels"><span>Progresso da meta</span><span id="prog-lbl">0%</span></div>
+      <div class="prog-labels"><span>Progresso da meta do período</span><span id="prog-lbl">0%</span></div>
       <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%;"></div></div>
       <div style="display:flex;justify-content:space-between;font-size:11px;color:#546E7A;margin-top:5px;"><span>R$ 0</span><span id="prog-meta-lbl">R$ 10.000,00</span></div>
     </div>
+
+    <!-- RESUMO ANUAL -->
+    <div style="font-size:11px;font-weight:600;color:#546E7A;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Resumo anual 2026 — Jan a Dez</div>
+    <div class="metrics" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:.5rem;">
+      <div class="mc"><div class="mc-label">Gasto total no ano</div><div class="mc-value" id="an-gasto" style="color:#1565C0;">—</div><div class="mc-sub" id="an-periodos" style="color:#546E7A;"></div></div>
+      <div class="mc"><div class="mc-label">Meta total no ano</div><div class="mc-value" id="an-meta" style="color:#546E7A;">—</div><div class="mc-sub" style="color:#546E7A;">12 meses × meta</div></div>
+      <div class="mc"><div class="mc-label">Saldo anual</div><div class="mc-value" id="an-saldo">—</div><div class="mc-sub" id="an-saldo-sub"></div></div>
+      <div class="mc"><div class="mc-label">H. totais no ano</div><div class="mc-value" id="an-horas" style="color:#2E7D32;">—</div><div class="mc-sub" style="color:#546E7A;">todas as horas extras</div></div>
+    </div>
+
+    <!-- BARRA ANUAL -->
+    <div class="section" style="margin-bottom:1.25rem;">
+      <div class="sh"><span class="st">Resultado por período — 2026</span></div>
+      <div style="padding:.9rem 1.1rem;" id="grafico-anual"></div>
+    </div>
+
+    <!-- GRÁFICO + CARGO -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
       <div class="section">
         <div class="sh"><span class="st">Custo por colaborador</span></div>
@@ -278,6 +309,46 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
     </div>
   </div>
 
+
+  <!-- ANÁLISE IA -->
+  <div id="tab-ia" class="tab-page">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:10px;">
+      <div>
+        <div style="font-size:15px;font-weight:600;">Análise IA — <span id="ia-periodo-nome" style="color:#1565C0;">—</span></div>
+        <div style="font-size:12px;color:#546E7A;margin-top:2px;">Análise inteligente do período atual: quem pode fazer mais horas e quem já está no limite.</div>
+      </div>
+      <button class="btn btn-p" onclick="rodarIA()" id="btn-ia">🤖 Analisar agora</button>
+    </div>
+
+    <!-- STATUS CARDS DOS COLABORADORES -->
+    <div class="section" style="margin-bottom:1.25rem;">
+      <div class="sh">
+        <span class="st">Status de disponibilidade — período ativo</span>
+        <span style="font-size:12px;color:#546E7A;" id="ia-saldo-info">—</span>
+      </div>
+      <div id="ia-colaboradores" style="padding:.9rem 1.1rem;">
+        <div class="empty">Clique em "Analisar agora" para ver a análise.</div>
+      </div>
+    </div>
+
+    <!-- TENDÊNCIAS -->
+    <div class="section" style="margin-bottom:1.25rem;">
+      <div class="sh"><span class="st">Tendência de gastos — todos os períodos</span></div>
+      <div id="ia-tendencias" style="padding:.9rem 1.1rem;"></div>
+    </div>
+
+    <!-- ANÁLISE IA TEXTO -->
+    <div class="section">
+      <div class="sh">
+        <span class="st">Recomendação da IA</span>
+        <span id="ia-status-badge" style="font-size:11px;padding:2px 9px;border-radius:10px;background:#ECEFF1;color:#546E7A;"></span>
+      </div>
+      <div id="ia-resultado" style="padding:1.1rem;font-size:13px;color:#546E7A;line-height:1.8;">
+        <div class="empty">Clique em "Analisar agora" para receber a análise da IA.</div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- MODAL PERÍODO -->
@@ -344,7 +415,7 @@ var colaboradores = [
 
 var periodos = [
   {
-    id:1, nome:"16/03 a 15/04", inicio:"2026-03-16", fim:"2026-04-15", meta:null,
+    id:1, nome:"16/03 a 15/04", inicio:"2026-03-16", fim:"2026-04-15", meta:null, metaVigente:10000,
     lancamentos:{
       1: {h50:"20:01",h100:"27:19",hNot:"00:41",hTot:"47:20",just:""},
       2: {h50:"10:41",h100:"17:40",hNot:"00:02",hTot:"28:21",just:""},
@@ -413,6 +484,106 @@ function render(){
   var ativos=p?colaboradores.filter(function(c){return getCustoCol(p,c)>0;}).length:0;
 
   document.getElementById('hdr-periodo').textContent=p?p.nome:'—';
+  var lpdash=document.getElementById('lbl-periodo-dash');
+  if(lpdash) lpdash.textContent='Período — '+(p?p.nome:'—');
+
+  // ===== HORAS DO PERÍODO =====
+  var totH50=0,totH100=0,totHNot=0,totHTot=0;
+  if(p){
+    colaboradores.forEach(function(c){
+      var l=getLanc(p,c.id);
+      if(l){totH50+=hms(l.h50);totH100+=hms(l.h100);totHNot+=hms(l.hNot);totHTot+=hms(l.hTot||'0:00');}
+    });
+    // fallback: se hTot não foi preenchido, soma as três
+    if(totHTot===0) totHTot=totH50+totH100+totHNot;
+  }
+  function fmtH(h){var hh=Math.floor(h);var mm=Math.round((h-hh)*60);return hh+'h'+(mm>0?mm+'m':'');}
+  var mh50=document.getElementById('m-h50');if(mh50)mh50.textContent=fmtH(totH50);
+  var mh100=document.getElementById('m-h100');if(mh100)mh100.textContent=fmtH(totH100);
+  var mhnot=document.getElementById('m-hnot');if(mhnot)mhnot.textContent=fmtH(totHNot);
+  var mhtot=document.getElementById('m-htot');if(mhtot)mhtot.textContent=fmtH(totHTot);
+
+  // ===== RESUMO ANUAL =====
+  // Soma todos os períodos cadastrados
+  // ===== CÁLCULO ANUAL CORRETO =====
+  // Cada período usa sua própria meta vigente (metaVigente salva no momento da criação)
+  // Meses sem período usam a meta atual para projeção
+  var anoGasto=0,anoMetaReal=0,anoH50=0,anoH100=0,anoHNot=0,anoHTot=0;
+  var nPeriodos=periodos.length;
+  var mesesComDados=nPeriodos;
+  var mesesSemDados=12-mesesComDados;
+  if(mesesSemDados<0) mesesSemDados=0;
+
+  periodos.forEach(function(pp){
+    anoGasto+=getTotalPeriodo(pp);
+    // Usa metaVigente salva no período, ou meta específica, ou global
+    var metaUsada=pp.metaVigente||getMeta(pp);
+    anoMetaReal+=metaUsada;
+    colaboradores.forEach(function(c){
+      var l=getLanc(pp,c.id);
+      if(l){anoH50+=hms(l.h50);anoH100+=hms(l.h100);anoHNot+=hms(l.hNot);anoHTot+=hms(l.hTot||'0:00');}
+    });
+  });
+  if(anoHTot===0) anoHTot=anoH50+anoH100+anoHNot;
+  // Projeção: meses ainda sem dados usam a meta atual
+  var anoMetaProjetada=anoMetaReal+(META_GLOBAL*mesesSemDados);
+  var anoSaldo=anoMetaReal-anoGasto; // saldo REAL (só períodos lançados)
+
+  var ag=document.getElementById('an-gasto');if(ag)ag.textContent=brl(anoGasto);
+  var ap=document.getElementById('an-periodos');if(ap)ap.textContent=nPeriodos+' período'+(nPeriodos!==1?'s':'')+' lançados de 12';
+  var am2=document.getElementById('an-meta');
+  if(am2){
+    am2.textContent=brl(anoMetaReal);
+    // Atualizar legenda do card
+    var amSub=am2.nextElementSibling;
+    if(amSub) amSub.textContent='meta real dos '+nPeriodos+' período'+(nPeriodos!==1?'s':'')+' (projeção anual: '+brl(anoMetaProjetada)+')';
+  }
+  var as=document.getElementById('an-saldo');
+  if(as){as.textContent=brl(Math.abs(anoSaldo));as.style.color=anoSaldo>=0?'#2E7D32':'#C62828';}
+  var ass=document.getElementById('an-saldo-sub');
+  if(ass){
+    ass.textContent=anoSaldo>=0?'economizado (períodos lançados)':'excedido (períodos lançados)';
+    ass.style.color=anoSaldo>=0?'#2E7D32':'#C62828';
+  }
+  var ah=document.getElementById('an-horas');if(ah)ah.textContent=fmtH(anoHTot);
+
+  // ===== GRÁFICO ANUAL =====
+  var meses12=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  var maxGastoAnual=0;
+  periodos.forEach(function(pp){var t=getTotalPeriodo(pp);if(t>maxGastoAnual)maxGastoAnual=t;});
+  if(maxGastoAnual<META_GLOBAL) maxGastoAnual=META_GLOBAL;
+  var ga='<div style="display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px;align-items:end;height:100px;margin-bottom:6px;">';
+  meses12.forEach(function(m,i){
+    // Encontrar período que cobre esse mês (simplificado: usa índice)
+    var pp=periodos[i]||null;
+    var gasto=pp?getTotalPeriodo(pp):0;
+    var metaP=pp?getMeta(pp):META_GLOBAL;
+    var h=gasto>0?Math.max(4,Math.round(gasto/maxGastoAnual*90)):3;
+    var cor=gasto===0?'#ECEFF1':gasto>metaP?'#C62828':gasto>metaP*0.8?'#E65100':'#2E7D32';
+    var lbl=pp?pp.nome:m;
+    ga+='<div style="display:flex;flex-direction:column;align-items:center;gap:3px;" title="'+lbl+(gasto>0?': '+brl(gasto):'')+'">'+
+      '<div style="font-size:10px;color:#546E7A;font-weight:600;">'+( gasto>0?'':'' )+'</div>'+
+      '<div style="width:100%;background:'+cor+';border-radius:3px 3px 0 0;height:'+h+'px;min-height:3px;"></div>'+
+      '</div>';
+  });
+  ga+='</div>';
+  ga+='<div style="display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px;">';
+  meses12.forEach(function(m,i){
+    var pp=periodos[i]||null;
+    var gasto=pp?getTotalPeriodo(pp):0;
+    var metaP=pp?getMeta(pp):META_GLOBAL;
+    var cor=gasto===0?'#B0BEC5':gasto>metaP?'#C62828':gasto>metaP*0.8?'#E65100':'#2E7D32';
+    ga+='<div style="text-align:center;font-size:10px;font-weight:600;color:'+cor+';">'+(pp?pp.nome.split('/')[0]:m)+'</div>';
+  });
+  ga+='</div>';
+  ga+='<div style="display:flex;gap:14px;margin-top:8px;flex-wrap:wrap;">';
+  ga+='<span style="font-size:11px;color:#546E7A;display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:#2E7D32;border-radius:2px;display:inline-block;"></span>Dentro da meta</span>';
+  ga+='<span style="font-size:11px;color:#546E7A;display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:#E65100;border-radius:2px;display:inline-block;"></span>Acima de 80%</span>';
+  ga+='<span style="font-size:11px;color:#546E7A;display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:#C62828;border-radius:2px;display:inline-block;"></span>Meta excedida</span>';
+  ga+='<span style="font-size:11px;color:#546E7A;display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:#ECEFF1;border-radius:2px;display:inline-block;"></span>Sem dados</span>';
+  ga+='<strong style="font-size:11px;color:#1565C0;margin-left:auto;">Linha meta: '+brl(META_GLOBAL)+'/mês</strong>';
+  ga+='</div>';
+  var gaDiv=document.getElementById('grafico-anual');if(gaDiv)gaDiv.innerHTML=ga;
 
   // Alerta meta
   var am=document.getElementById('alerta-meta');
@@ -531,11 +702,20 @@ function renderLancar(){
   document.getElementById('lanc-grid').innerHTML=g||'<div class="empty">Nenhum colaborador.</div>';
 }
 
+function decToHMS(h){
+  var totalMin=Math.round(h*60);
+  var hh=Math.floor(totalMin/60);
+  var mm=totalMin%60;
+  return hh+':'+(mm<10?'0':'')+mm;
+}
+
 function atualizarCustoCard(colId){
   var c=getCol(colId); if(!c) return;
   var h50=hms(document.getElementById('li-h50-'+colId).value);
   var h100=hms(document.getElementById('li-h100-'+colId).value);
   var hNot=hms(document.getElementById('li-hnot-'+colId).value);
+  var hTotal=h50+h100+hNot;
+  document.getElementById('li-htot-'+colId).value=decToHMS(hTotal);
   document.getElementById('li-custo-'+colId).textContent=brl(calcCusto(c.sal,h50,h100,hNot));
 }
 
@@ -642,10 +822,16 @@ function salvarPeriodo(){
   if(id){
     obj.id=parseInt(id);
     var ex=getPeriodo(obj.id);
-    if(ex) obj.lancamentos=ex.lancamentos||{};
+    if(ex){
+      obj.lancamentos=ex.lancamentos||{};
+      // Preserva a metaVigente original — nunca muda retroativamente
+      obj.metaVigente=ex.metaVigente||ex.meta||META_GLOBAL;
+    }
     periodos=periodos.map(function(p){return p.id===obj.id?obj:p;});
   } else {
     obj.id=nextPeriodoId++;
+    // Salva a meta vigente no momento da criação do período
+    obj.metaVigente=metaVal||META_GLOBAL;
     periodos.push(obj);
     periodoAtivo=obj.id;
   }
@@ -791,7 +977,190 @@ document.querySelectorAll('.overlay').forEach(function(ov){
   ov.addEventListener('click',function(e){if(e.target===this) this.classList.remove('show');});
 });
 
+// ===== ANÁLISE IA =====
+function renderTendencias(){
+  var div=document.getElementById('ia-tendencias');
+  if(!div) return;
+  if(periodos.length===0){div.innerHTML='<div class="empty">Nenhum período lançado ainda.</div>';return;}
+
+  var maxG=0;
+  periodos.forEach(function(pp){var t=getTotalPeriodo(pp);if(t>maxG)maxG=t;});
+  if(maxG<META_GLOBAL) maxG=META_GLOBAL;
+
+  var h='<div style="display:flex;flex-direction:column;gap:10px;">';
+  periodos.forEach(function(pp){
+    var total=getTotalPeriodo(pp);
+    var meta=pp.metaVigente||getMeta(pp);
+    var pct=Math.min(total/maxG*100,100);
+    var pctMeta=meta/maxG*100;
+    var cor=total>meta?'#C62828':total>meta*0.8?'#E65100':'#2E7D32';
+    var saldo=meta-total;
+    h+='<div>'+
+      '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">'+
+        '<span style="font-weight:600;">'+pp.nome+'</span>'+
+        '<span style="color:'+cor+';font-weight:600;">'+brl(total)+
+          ' <span style="font-size:11px;font-weight:400;color:#546E7A;">/ meta '+brl(meta)+'</span>'+
+          ' <span style="font-size:11px;font-weight:600;color:'+(saldo>=0?'#2E7D32':'#C62828')+'">'+(saldo>=0?'✓ save '+brl(saldo):'⚠ déficit '+brl(Math.abs(saldo)))+'</span>'+
+        '</span>'+
+      '</div>'+
+      '<div style="position:relative;height:18px;background:#ECEFF1;border-radius:4px;overflow:hidden;">'+
+        '<div style="position:absolute;top:0;left:0;height:100%;width:'+pct+'%;background:'+cor+';border-radius:4px;transition:width .4s;"></div>'+
+        '<div style="position:absolute;top:0;left:'+pctMeta+'%;height:100%;width:2px;background:#1565C0;"></div>'+
+      '</div>'+
+      '<div style="font-size:10px;color:#546E7A;margin-top:2px;text-align:right;">barra azul = meta do período</div>'+
+    '</div>';
+  });
+  h+='</div>';
+  div.innerHTML=h;
+}
+
+function renderStatusColaboradores(){
+  var p=getPeriodo(periodoAtivo);
+  var meta=getMeta(p);
+  var total=p?getTotalPeriodo(p):0;
+  var saldoRestante=meta-total;
+  var div=document.getElementById('ia-colaboradores');
+  var infoDiv=document.getElementById('ia-saldo-info');
+  if(infoDiv) infoDiv.textContent='Saldo restante: '+brl(saldoRestante)+(saldoRestante<0?' ⚠ meta excedida':'');
+
+  if(!p){div.innerHTML='<div class="empty">Nenhum período ativo.</div>';return;}
+
+  var cols=colaboradores.map(function(c){
+    var l=getLanc(p,c.id);
+    var custo=getCustoCol(p,c);
+    var hTot=l?(hms(l.h50)+hms(l.h100)+hms(l.hNot)):0;
+    var vh=c.sal/220;
+    // Custo de 1h extra 50% deste colaborador
+    var custoH50=vh*1.05;
+    var custoH100=vh*2.10;
+    // Quantas horas a 50% cabem no saldo
+    var hDisp50=saldoRestante>0?Math.floor(saldoRestante/custoH50*10)/10:0;
+    var hDisp100=saldoRestante>0?Math.floor(saldoRestante/custoH100*10)/10:0;
+    return {c:c,custo:custo,hTot:hTot,custoH50:custoH50,custoH100:custoH100,hDisp50:hDisp50,hDisp100:hDisp100};
+  }).sort(function(a,b){return a.custoH50-b.custoH50;});
+
+  var h='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;">';
+  cols.forEach(function(item){
+    var c=item.c;
+    var pctUso=meta>0?(item.custo/meta*100):0;
+    var nivel,cor,bg,label;
+    if(item.custo===0){nivel='livre';cor='#2E7D32';bg='#E8F5E9';label='Sem horas neste período';}
+    else if(pctUso<15){nivel='baixo';cor='#2E7D32';bg='#E8F5E9';label='Uso baixo — pode escalar';}
+    else if(pctUso<30){nivel='moderado';cor='#1565C0';bg='#E3F2FD';label='Uso moderado';}
+    else if(pctUso<50){nivel='alto';cor='#E65100';bg='#FFF3E0';label='Uso alto — atenção';}
+    else{nivel='limite';cor='#C62828';bg='#FFEBEE';label='No limite — evitar';}
+    if(item.custo===0) bg='#E8F5E9';
+    else if(pctUso<15) bg='#E8F5E9';
+    else if(pctUso<30) bg='#E3F2FD';
+    else if(pctUso<50) bg='#FFF3E0';
+    else bg='#FFEBEE';
+
+    h+='<div style="background:'+bg+';border-radius:10px;padding:12px;border:1px solid '+cor+'30;">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">'+
+        '<div style="font-size:13px;font-weight:600;">'+c.nome.split(' ')[0]+' '+c.nome.split(' ')[1]+'</div>'+
+        '<span style="background:#fff;color:'+cor+';font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;border:1px solid '+cor+';">'+label+'</span>'+
+      '</div>'+
+      '<div style="font-size:11px;color:#546E7A;margin-bottom:6px;">'+c.cargo+'</div>'+
+      '<div style="height:6px;background:#fff;border-radius:3px;overflow:hidden;margin-bottom:6px;">'+
+        '<div style="height:100%;width:'+Math.min(pctUso,100)+'%;background:'+cor+';border-radius:3px;"></div>'+
+      '</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;color:#546E7A;">'+
+        '<div>Custo atual: <strong style="color:'+cor+';">'+brl(item.custo)+'</strong></div>'+
+        '<div>% da meta: <strong style="color:'+cor+';">'+pctUso.toFixed(1)+'%</strong></div>'+
+        '<div>VH 50%: <strong>'+brl(item.custoH50)+'/h</strong></div>'+
+        '<div>VH 100%: <strong>'+brl(item.custoH100)+'/h</strong></div>'+
+        (saldoRestante>0?'<div style="grid-column:span 2;">Cabe ainda: <strong style="color:#1565C0;">'+item.hDisp50.toFixed(1)+'h (50%) ou '+item.hDisp100.toFixed(1)+'h (100%)</strong></div>':'<div style="grid-column:span 2;color:#C62828;font-weight:600;">Meta esgotada para este período</div>')+
+      '</div>'+
+    '</div>';
+  });
+  h+='</div>';
+  div.innerHTML=h;
+}
+
+async function rodarIA(){
+  var btn=document.getElementById('btn-ia');
+  var resultado=document.getElementById('ia-resultado');
+  var badge=document.getElementById('ia-status-badge');
+  var p=getPeriodo(periodoAtivo);
+  var meta=getMeta(p);
+  var total=p?getTotalPeriodo(p):0;
+  var saldo=meta-total;
+
+  // Atualizar nome do período
+  var nomeEl=document.getElementById('ia-periodo-nome');
+  if(nomeEl) nomeEl.textContent=p?p.nome:'—';
+
+  renderStatusColaboradores();
+  renderTendencias();
+
+  // Montar contexto para a IA
+  var linhas=[];
+  colaboradores.forEach(function(c){
+    var l=p?getLanc(p,c.id):null;
+    var custo=getCustoCol(p,c);
+    var hTot=l?(hms(l.h50)+hms(l.h100)+hms(l.hNot)):0;
+    var pctMeta=meta>0?(custo/meta*100):0;
+    var vh=c.sal/220;
+    linhas.push('- '+c.nome+' ('+c.cargo+'): '+hTot.toFixed(1)+'h totais, custo R$'+custo.toFixed(2)+' ('+pctMeta.toFixed(1)+'% da meta), VH50%=R$'+( vh*1.05).toFixed(2)+'/h, VH100%=R$'+(vh*2.10).toFixed(2)+'/h');
+  });
+
+  var nomePeriodo=p?p.nome:'atual';
+  var prompt=[
+    'Você é um gestor especialista em controle de horas extras industriais. Analise os dados e responda em português, direto e objetivo.',
+    'PERÍODO: '+nomePeriodo,
+    'META: R$'+meta.toFixed(2),
+    'GASTO ATUAL: R$'+total.toFixed(2),
+    'SALDO RESTANTE: R$'+saldo.toFixed(2)+(saldo<0?' (META EXCEDIDA)':''),
+    'COLABORADORES:',
+    linhas.join(' | '),
+    'Responda com estas 4 seções:',
+    '1. SITUAÇÃO GERAL: como está o período (1 parágrafo)',
+    '2. PODE ESCALAR (top 3): menor custo/hora e menor % da meta - nome, horas disponíveis no saldo e motivo',
+    '3. EVITAR ESCALAR (top 3): alto custo ou muitas horas - nome e motivo',
+    '4. RECOMENDAÇÃO FINAL: o que fazer para fechar dentro da meta.',
+    'Use nomes, valores em R$ e horas. Máximo 300 palavras.'
+  ].join('\n');
+
+  btn.disabled=true;
+  btn.textContent='Analisando...';
+  badge.textContent='Processando...';
+  badge.style.background='#E3F2FD';
+  badge.style.color='#1565C0';
+  resultado.innerHTML='<div style="color:#1565C0;padding:1rem 0;">Aguarde, a IA está analisando os dados do período...</div>';
+
+  try{
+    var resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    var data=await resp.json();
+    var texto=data.content&&data.content[0]?data.content[0].text:'Não foi possível obter análise.';
+    // Formatar o texto com seções
+    texto=texto.split('\n\n').join('</p><p style="margin-bottom:12px;">');
+    texto=texto.split('\n').join('<br>');
+    texto=texto.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+    texto=texto.replace(/([1-4]\. [A-ZÁÉÍÓÚÇÃÕ ]+:)/g,'<strong style="color:#1565C0;">$1</strong>');
+    resultado.innerHTML='<p style="margin-bottom:12px;">'+texto+'</p>';
+    badge.textContent='✓ Análise concluída';
+    badge.style.background='#E8F5E9';
+    badge.style.color='#2E7D32';
+  }catch(err){
+    resultado.innerHTML='<div style="color:#C62828;">Erro ao conectar com a IA. Verifique sua conexão e tente novamente.<br><small>'+err.message+'</small></div>';
+    badge.textContent='Erro';
+    badge.style.background='#FFEBEE';
+    badge.style.color='#C62828';
+  }
+  btn.disabled=false;
+  btn.textContent='🤖 Analisar novamente';
+}
+
 render();
+
 </script>
 </body>
 </html>
