@@ -110,11 +110,16 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
 <div class="header">
   <div>
     <div class="header-title">Controle de Horas Extras — Manutenção 2026</div>
-    <div style="font-size:12px;opacity:.75;margin-top:2px;">Meta mensal: R$ 10.000,00</div>
+    <div style="font-size:12px;opacity:.75;margin-top:2px;" id="hdr-save-status">Meta mensal: R$ 10.000,00</div>
   </div>
-  <div class="header-periodo" onclick="trocarAba('config',document.querySelectorAll('.nb')[5])">
-    <span id="hdr-periodo">—</span>
-    <span style="opacity:.7;font-size:11px;">▼ alterar</span>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <button onclick="exportarDados()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;" title="Baixar backup dos dados">
+      ⬇ Backup
+    </button>
+    <div class="header-periodo" onclick="trocarAba('config',document.querySelectorAll('.nb')[5])">
+      <span id="hdr-periodo">—</span>
+      <span style="opacity:.7;font-size:11px;">▼ alterar</span>
+    </div>
   </div>
 </div>
 
@@ -129,6 +134,7 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
   <button class="nb" onclick="trocarAba('lancar',this)">Lançar Horas</button>
   <button class="nb" onclick="trocarAba('colaboradores',this)">Colaboradores</button>
   <button class="nb" onclick="trocarAba('simulador',this)">Simulador</button>
+  <button class="nb" onclick="trocarAba('turno',this)">👥 Turno do Dia</button>
   <button class="nb" onclick="trocarAba('historico',this)">Histórico</button>
   <button class="nb" onclick="trocarAba('config',this)">Configurações</button>
   <button class="nb" onclick="trocarAba('ia',this)">🤖 Análise IA</button>
@@ -172,6 +178,11 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
       <div class="mc" style="border:1.5px solid #2E7D32;"><div class="mc-label">Saldo disponível</div><div class="mc-value" id="an-saldo">—</div><div class="mc-sub" id="an-saldo-sub"></div></div>
       <div class="mc" style="border:1.5px solid #1565C0;"><div class="mc-label">Teto por mês restante</div><div class="mc-value" id="an-teto-mes" style="color:#1565C0;">—</div><div class="mc-sub" id="an-teto-sub" style="color:#546E7A;"></div></div>
       <div class="mc"><div class="mc-label">H. totais no ano</div><div class="mc-value" id="an-horas" style="color:#2E7D32;">—</div><div class="mc-sub" style="color:#546E7A;">todas as horas extras</div></div>
+    </div>
+    <div class="metrics" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:.5rem;">
+      <div class="mc" style="border:1.5px solid #C62828;"><div class="mc-label">Acumulado negativo no ano</div><div class="mc-value" id="an-neg" style="color:#C62828;">R$ 0,00</div><div class="mc-sub" id="an-neg-sub" style="color:#546E7A;">soma dos meses que fecharam no vermelho</div></div>
+      <div class="mc" style="border:1.5px solid #2E7D32;"><div class="mc-label">Acumulado positivo no ano</div><div class="mc-value" id="an-pos" style="color:#2E7D32;">R$ 0,00</div><div class="mc-sub" id="an-pos-sub" style="color:#546E7A;">soma dos meses dentro da meta</div></div>
+      <div class="mc"><div class="mc-label">Resultado líquido</div><div class="mc-value" id="an-liquido">R$ 0,00</div><div class="mc-sub" id="an-liquido-sub" style="color:#546E7A;">positivo = economizou · negativo = excedeu</div></div>
     </div>
 
     <!-- DISTRIBUIÇÃO MENSAL -->
@@ -369,6 +380,87 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
     </div>
   </div>
 
+  <!-- TURNO DO DIA -->
+  <div id="tab-turno" class="tab-page">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:10px;">
+      <div>
+        <div style="font-size:15px;font-weight:600;">Simulador de turno — vários colaboradores no mesmo dia</div>
+        <div style="font-size:12px;color:#546E7A;margin-top:2px;">Adicione colaboradores, informe os horários de cada um e veja o custo total do dia antes de autorizar.</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-p" onclick="adicionarLinhaTurno()">+ Adicionar colaborador</button>
+        <button class="btn btn-g" onclick="autorizarTurno()">✓ Autorizar turno</button>
+        <button class="btn-sm btn-d" style="padding:7px 14px;" onclick="limparTurno()">✕ Limpar</button>
+      </div>
+    </div>
+
+    <!-- DATA E MOTIVO DO TURNO -->
+    <div class="section" style="padding:1.25rem;margin-bottom:1.25rem;">
+      <div class="fg fg3">
+        <div>
+          <label class="lbl">Data do turno</label>
+          <input type="date" id="turno-data" oninput="atualizarResumoTurno()"/>
+        </div>
+        <div style="grid-column:span 2;">
+          <label class="lbl">Motivo / Justificativa <span style="color:#C62828;">*</span></label>
+          <input type="text" id="turno-motivo" placeholder="Ex: Manutenção corretiva urgente no HVAC bloco A — aprovado pela supervisão"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- LISTA DE COLABORADORES DO TURNO -->
+    <div class="section" style="margin-bottom:1.25rem;">
+      <div class="sh">
+        <span class="st">Colaboradores escalados</span>
+        <span style="font-size:12px;color:#546E7A;">Primeiras 2h extras = 50% · acima de 2h = 100%</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;min-width:800px;">
+          <thead>
+            <tr>
+              <th style="text-align:left;font-size:11px;font-weight:600;color:#546E7A;text-transform:uppercase;padding:8px 11px;border-bottom:1px solid #CFD8DC;background:#FAFBFC;">Colaborador</th>
+              <th style="text-align:center;font-size:11px;font-weight:600;color:#546E7A;text-transform:uppercase;padding:8px 11px;border-bottom:1px solid #CFD8DC;background:#FAFBFC;">Entrada</th>
+              <th style="text-align:center;font-size:11px;font-weight:600;color:#546E7A;text-transform:uppercase;padding:8px 11px;border-bottom:1px solid #CFD8DC;background:#FAFBFC;">Saída prevista</th>
+              <th style="text-align:center;font-size:11px;font-weight:600;color:#546E7A;text-transform:uppercase;padding:8px 11px;border-bottom:1px solid #CFD8DC;background:#FAFBFC;">Saída autorizada</th>
+              <th style="text-align:center;font-size:11px;font-weight:600;color:#546E7A;text-transform:uppercase;padding:8px 11px;border-bottom:1px solid #CFD8DC;background:#FAFBFC;">H. Extra 50%</th>
+              <th style="text-align:center;font-size:11px;font-weight:600;color:#546E7A;text-transform:uppercase;padding:8px 11px;border-bottom:1px solid #CFD8DC;background:#FAFBFC;">H. Extra 100%</th>
+              <th style="text-align:right;font-size:11px;font-weight:600;color:#546E7A;text-transform:uppercase;padding:8px 11px;border-bottom:1px solid #CFD8DC;background:#FAFBFC;">Custo</th>
+              <th style="padding:8px 11px;border-bottom:1px solid #CFD8DC;background:#FAFBFC;"></th>
+            </tr>
+          </thead>
+          <tbody id="turno-tbody"></tbody>
+          <tfoot>
+            <tr style="background:#F0F4FF;border-top:2px solid #CFD8DC;">
+              <td colspan="4" style="padding:10px 11px;font-weight:700;font-size:13px;">TOTAL DO DIA</td>
+              <td style="padding:10px 11px;text-align:center;font-weight:700;" id="turno-tot-h50">—</td>
+              <td style="padding:10px 11px;text-align:center;font-weight:700;" id="turno-tot-h100">—</td>
+              <td style="padding:10px 11px;text-align:right;font-weight:700;font-size:15px;" id="turno-tot-custo">—</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+        <div id="turno-vazio" class="empty" style="padding:2rem;">Clique em "+ Adicionar colaborador" para começar.</div>
+      </div>
+    </div>
+
+    <!-- PAINEL DE CONTROLE DO TURNO -->
+    <div class="section" style="padding:1.25rem;">
+      <div class="st" style="margin-bottom:1rem;">Impacto na meta do período</div>
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:1rem;">
+        <div class="mc"><div class="mc-label">Custo do turno</div><div class="mc-value" id="turno-custo-dia" style="color:#E65100;">R$ 0,00</div></div>
+        <div class="mc"><div class="mc-label">Gasto acumulado</div><div class="mc-value" id="turno-acumulado" style="color:#1565C0;">—</div></div>
+        <div class="mc"><div class="mc-label">Saldo após turno</div><div class="mc-value" id="turno-saldo-apos">—</div></div>
+        <div class="mc"><div class="mc-label">Uso da meta</div><div class="mc-value" id="turno-pct-meta">—</div>
+          <div class="prog-bar" style="margin-top:8px;height:6px;"><div class="prog-fill" id="turno-prog" style="width:0%;"></div></div>
+        </div>
+      </div>
+      <div id="turno-alerta" style="display:none;"></div>
+    </div>
+
+  </div>
+
+  <!-- HISTÓRICO -->
   <!-- HISTÓRICO -->
   <div id="tab-historico" class="tab-page">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:8px;">
@@ -397,6 +489,24 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
         </div>
       </div>
     </div>
+    <div class="section">
+      <div class="sh"><span class="st">Dados e backup</span></div>
+      <div style="padding:1.1rem;display:flex;flex-direction:column;gap:10px;">
+        <div style="background:#E8F5E9;border-radius:8px;padding:10px 14px;font-size:13px;color:#2E7D32;">
+          ✅ <strong>Salvamento automático ativo</strong> — todos os seus dados (períodos, horas, colaboradores) são salvos automaticamente no navegador. Fechar e reabrir a página não perde nada.
+        </div>
+        <div style="background:#E3F2FD;border-radius:8px;padding:10px 14px;font-size:13px;color:#1565C0;">
+          ℹ️ Os dados ficam salvos <strong>neste navegador e computador</strong>. Se acessar de outro computador, os dados novos não aparecem lá. Para isso, use o mesmo computador ou exporte/importe.
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-p" onclick="exportarDados()" style="background:#2E7D32;">⬇ Exportar dados (backup)</button>
+          <button class="btn btn-p" onclick="document.getElementById('import-file').click()">⬆ Importar dados</button>
+          <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importarDados(this)"/>
+          <button class="btn btn-d btn-sm" style="padding:7px 16px;font-size:13px;" onclick="resetarDados()">🗑 Resetar tudo</button>
+        </div>
+      </div>
+    </div>
+
     <div class="section">
       <div class="sh"><span class="st">Fórmulas de cálculo</span></div>
       <div style="padding:1.1rem;">
@@ -499,11 +609,165 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
 </div>
 
 <script>
-var META_GLOBAL = 10000;
-var nextColId = 15;
-var nextPeriodoId = 2;
-var periodoAtivo = 1;
-var historico = [];
+// ===== DADOS PADRÃO (base fixa — nunca se perde) =====
+var COLABORADORES_BASE = [
+  {id:1,  nome:"Adriano Antonio de Sousa",      cargo:"Tec. Predial Pleno",          sal:4159.00},
+  {id:2,  nome:"Alex de Freitas Alves",          cargo:"Tec. Refrigeração Sênior",    sal:5356.29},
+  {id:3,  nome:"Antonio dos Santos Diniz",       cargo:"Tec. Eletromecânico Jr",      sal:3103.00},
+  {id:4,  nome:"Claudinei de Lima",              cargo:"Tec. Predial Sênior",         sal:5406.82},
+  {id:5,  nome:"Felipe Rezende Farrapo",         cargo:"Tec. Eletromecânico Jr",      sal:5406.82},
+  {id:6,  nome:"Gledson Camara Souza",           cargo:"Tec. Refrigeração Sênior",    sal:5406.82},
+  {id:7,  nome:"Lucas Eduardo Pereira Martins",  cargo:"Tec. Eletromecânico Jr",      sal:3103.00},
+  {id:8,  nome:"Lucas Gomes dos Santos",         cargo:"Tec. Eletromecânico Pleno",   sal:4253.43},
+  {id:9,  nome:"Mario Ulisses da Silva",         cargo:"Tec. Eletromecânico Pleno",   sal:4253.43},
+  {id:10, nome:"Reinaldo Soares",                cargo:"Tec. Eletromecânico Sênior",  sal:5406.82},
+  {id:11, nome:"Rivaldo José Freire Neto",       cargo:"Tec. Eletromecânico Sênior",  sal:5406.82},
+  {id:12, nome:"Ronaldo Rodrigues Taborda",      cargo:"Tec. Eletromecânico Sênior",  sal:5406.82},
+  {id:13, nome:"Thierry Pereira",                cargo:"Tec. Eletromecânico Jr",      sal:3103.00},
+  {id:14, nome:"Vinícius Silva Salgado",         cargo:"Tec. Eletromecânico Sênior",  sal:5406.82},
+];
+
+var PERIODOS_BASE = [
+  {
+    id:1, nome:"Março/Abril", inicio:"2026-03-16", fim:"2026-04-15", meta:null, metaVigente:10000,
+    lancamentos:{
+      1: {h50:"20:01",h100:"27:19",hNot:"00:41",hTot:"47:20",just:""},
+      2: {h50:"10:41",h100:"17:40",hNot:"00:02",hTot:"28:21",just:""},
+      3: {h50:"01:48",h100:"13:01",hNot:"06:14",hTot:"20:49",just:""},
+      4: {h50:"14:13",h100:"15:30",hNot:"00:00",hTot:"29:43",just:""},
+      5: {h50:"16:12",h100:"47:16",hNot:"02:08",hTot:"63:28",just:""},
+      6: {h50:"43:55",h100:"17:41",hNot:"13:26",hTot:"61:36",just:""},
+      7: {h50:"36:11",h100:"21:11",hNot:"01:55",hTot:"57:22",just:""},
+      8: {h50:"08:22",h100:"33:51",hNot:"02:28",hTot:"42:13",just:""},
+      9: {h50:"14:29",h100:"19:26",hNot:"00:00",hTot:"33:55",just:""},
+      10:{h50:"06:00",h100:"06:33",hNot:"01:19",hTot:"13:52",just:""},
+      11:{h50:"00:00",h100:"00:00",hNot:"00:00",hTot:"00:00",just:"Funcionário novo — sem horas neste período"},
+      12:{h50:"04:51",h100:"00:00",hNot:"04:12",hTot:"09:03",just:""},
+      13:{h50:"00:00",h100:"00:00",hNot:"00:00",hTot:"00:00",just:"Funcionário novo — sem horas neste período"},
+      14:{h50:"08:02",h100:"42:41",hNot:"10:27",hTot:"51:10",just:""},
+    }
+  }
+];
+
+var META_BASE = 10000;
+var NEXT_COL_BASE = 15;
+var NEXT_PERIODO_BASE = 2;
+
+// ===== GOOGLE SHEETS — BANCO DE DADOS NA NUVEM =====
+var API_URL = 'https://script.google.com/macros/s/AKfycbz0pTNmc1E6Qq0irUQ6npCUQeAeRjUNJ9oS_hGfQceMfBBi_wwTFKQIqZkk7tvGFkkb2g/exec';
+var _salvando = false;
+var _pendenteSalvar = false;
+var _carregado = false;
+
+function mostrarStatus(msg, cor){
+  var el = document.getElementById('hdr-save-status');
+  if(el){ el.textContent = msg; el.style.color = cor||'rgba(255,255,255,0.75)'; }
+}
+
+// ===== SALVAR TUDO NA PLANILHA =====
+function salvarLS(){
+  if(_salvando){ _pendenteSalvar = true; return; }
+  _salvando = true;
+  mostrarStatus('💾 Salvando...', '#FFD54F');
+
+  var dados = {
+    meta:        META_GLOBAL,
+    colaboradores: colaboradores,
+    periodos:    periodos,
+    historico:   historico,
+    periodoAtivo: periodoAtivo,
+    nextColId:   nextColId,
+    nextPeriodoId: nextPeriodoId
+  };
+
+  fetch(API_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'set_all', dados: dados })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(res){
+    _salvando = false;
+    if(res.ok){
+      mostrarStatus('✅ Salvo — ' + new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}), '#A5D6A7');
+      setTimeout(function(){ mostrarStatus('Meta mensal: R$ ' + META_GLOBAL.toLocaleString('pt-BR',{minimumFractionDigits:2}), 'rgba(255,255,255,0.75)'); }, 3000);
+    } else {
+      mostrarStatus('⚠ Erro ao salvar', '#FF8A80');
+    }
+    if(_pendenteSalvar){ _pendenteSalvar = false; salvarLS(); }
+  })
+  .catch(function(){
+    _salvando = false;
+    mostrarStatus('⚠ Sem conexão — salvamento pendente', '#FF8A80');
+    // Fallback: salva no localStorage também
+    try{ localStorage.setItem('he_backup', JSON.stringify(dados)); }catch(e){}
+    if(_pendenteSalvar){ _pendenteSalvar = false; setTimeout(salvarLS, 5000); }
+  });
+}
+
+// ===== CARREGAR DA PLANILHA =====
+function carregarLS(){
+  mostrarStatus('🔄 Carregando dados...', '#FFD54F');
+
+  fetch(API_URL + '?action=get')
+  .then(function(r){ return r.json(); })
+  .then(function(res){
+    if(res.ok && res.data){
+      var d = res.data;
+      if(d.meta        !== undefined) META_GLOBAL   = d.meta;
+      if(d.colaboradores)             colaboradores = d.colaboradores;
+      if(d.periodos)                  periodos      = d.periodos;
+      if(d.historico)                 historico     = d.historico;
+      if(d.periodoAtivo !== undefined) periodoAtivo = d.periodoAtivo;
+      if(d.nextColId    !== undefined) nextColId    = d.nextColId;
+      if(d.nextPeriodoId!== undefined) nextPeriodoId= d.nextPeriodoId;
+    }
+    _carregado = true;
+    mostrarStatus('✅ Dados carregados', '#A5D6A7');
+    setTimeout(function(){ mostrarStatus('Meta mensal: R$ ' + META_GLOBAL.toLocaleString('pt-BR',{minimumFractionDigits:2}), 'rgba(255,255,255,0.75)'); }, 2000);
+    render();
+  })
+  .catch(function(){
+    // Fallback: tenta carregar do localStorage se offline
+    mostrarStatus('⚠ Offline — usando backup local', '#FF8A80');
+    try{
+      var bk = localStorage.getItem('he_backup');
+      if(bk){
+        var d = JSON.parse(bk);
+        if(d.meta)          META_GLOBAL    = d.meta;
+        if(d.colaboradores) colaboradores  = d.colaboradores;
+        if(d.periodos)      periodos       = d.periodos;
+        if(d.historico)     historico      = d.historico;
+        if(d.periodoAtivo)  periodoAtivo   = d.periodoAtivo;
+        if(d.nextColId)     nextColId      = d.nextColId;
+        if(d.nextPeriodoId) nextPeriodoId  = d.nextPeriodoId;
+      }
+    }catch(e){}
+    _carregado = true;
+    render();
+  });
+}
+
+function resetarDados(){
+  if(!confirm('Atenção! Isso apaga TODOS os dados e volta ao estado inicial.\nTem certeza?')) return;
+  META_GLOBAL    = META_BASE;
+  colaboradores  = JSON.parse(JSON.stringify(COLABORADORES_BASE));
+  periodos       = JSON.parse(JSON.stringify(PERIODOS_BASE));
+  historico      = [];
+  periodoAtivo   = 1;
+  nextColId      = NEXT_COL_BASE;
+  nextPeriodoId  = NEXT_PERIODO_BASE;
+  salvarLS();
+  render();
+}
+
+// ===== VARIÁVEIS GLOBAIS =====
+var META_GLOBAL   = META_BASE;
+var nextColId     = NEXT_COL_BASE;
+var nextPeriodoId = NEXT_PERIODO_BASE;
+var periodoAtivo  = 1;
+var historico     = [];
+var colaboradores = JSON.parse(JSON.stringify(COLABORADORES_BASE));
+var periodos      = JSON.parse(JSON.stringify(PERIODOS_BASE));
 
 // Utilitário global de formatação de horas
 function fmtH(h){
@@ -539,45 +803,9 @@ function calcMetaAnual(){
   };
 }
 
-var colaboradores = [
-  {id:1,  nome:"Adriano Antonio de Sousa",      cargo:"Tec. Predial Pleno",          sal:4159.00},
-  {id:2,  nome:"Alex de Freitas Alves",          cargo:"Tec. Refrigeração Sênior",    sal:5356.29},
-  {id:3,  nome:"Antonio dos Santos Diniz",       cargo:"Tec. Eletromecânico Jr",      sal:3103.00},
-  {id:4,  nome:"Claudinei de Lima",              cargo:"Tec. Predial Sênior",         sal:5406.82},
-  {id:5,  nome:"Felipe Rezende Farrapo",         cargo:"Tec. Eletromecânico Jr",      sal:5406.82},
-  {id:6,  nome:"Gledson Camara Souza",           cargo:"Tec. Refrigeração Sênior",    sal:5406.82},
-  {id:7,  nome:"Lucas Eduardo Pereira Martins",  cargo:"Tec. Eletromecânico Jr",      sal:3103.00},
-  {id:8,  nome:"Lucas Gomes dos Santos",         cargo:"Tec. Eletromecânico Pleno",   sal:4253.43},
-  {id:9,  nome:"Mario Ulisses da Silva",         cargo:"Tec. Eletromecânico Pleno",   sal:4253.43},
-  {id:10, nome:"Reinaldo Soares",                cargo:"Tec. Eletromecânico Sênior",  sal:5406.82},
-  {id:11, nome:"Rivaldo José Freire Neto",       cargo:"Tec. Eletromecânico Sênior",  sal:5406.82},
-  {id:12, nome:"Ronaldo Rodrigues Taborda",      cargo:"Tec. Eletromecânico Sênior",  sal:5406.82},
-  {id:13, nome:"Thierry Pereira",                cargo:"Tec. Eletromecânico Jr",      sal:3103.00},
-  {id:14, nome:"Vinícius Silva Salgado",         cargo:"Tec. Eletromecânico Sênior",  sal:5406.82},
-];
+// colaboradores definidos pelo localStorage ou COLABORADORES_BASE acima
 
-var periodos = [
-  {
-    id:1, nome:"Março/Abril", inicio:"2026-03-16", fim:"2026-04-15", meta:null, metaVigente:10000,
-    lancamentos:{
-      1: {h50:"20:01",h100:"27:19",hNot:"00:41",hTot:"47:20",just:""},
-      2: {h50:"10:41",h100:"17:40",hNot:"00:02",hTot:"28:21",just:""},
-      3: {h50:"01:48",h100:"13:01",hNot:"06:14",hTot:"20:49",just:""},
-      4: {h50:"14:13",h100:"15:30",hNot:"00:00",hTot:"29:43",just:""},
-      5: {h50:"16:12",h100:"47:16",hNot:"02:08",hTot:"63:28",just:""},
-      6: {h50:"43:55",h100:"17:41",hNot:"13:26",hTot:"61:36",just:""},
-      7: {h50:"36:11",h100:"21:11",hNot:"01:55",hTot:"57:22",just:""},
-      8: {h50:"08:22",h100:"33:51",hNot:"02:28",hTot:"42:13",just:""},
-      9: {h50:"14:29",h100:"19:26",hNot:"00:00",hTot:"33:55",just:""},
-      10:{h50:"06:00",h100:"06:33",hNot:"01:19",hTot:"13:52",just:""},
-      11:{h50:"00:00",h100:"00:00",hNot:"00:00",hTot:"00:00",just:"Funcionário novo — sem horas neste período"},
-      12:{h50:"04:51",h100:"00:00",hNot:"04:12",hTot:"09:03",just:""},
-      13:{h50:"00:00",h100:"00:00",hNot:"00:00",hTot:"00:00",just:"Funcionário novo — sem horas neste período"},
-      14:{h50:"08:02",h100:"42:41",hNot:"10:27",hTot:"51:10",just:""},
-    }
-  }
-];
-
+// periodos definidos pelo localStorage ou PERIODOS_BASE acima
 // ===== UTILITÁRIOS =====
 function hms(s){
   s=(s||'').trim();
@@ -686,6 +914,29 @@ function render(){
     ass.style.color=ma.saldoAnual>=0?'#2E7D32':'#C62828';
   }
   var ah=document.getElementById('an-horas');if(ah)ah.textContent=fmtH(anoHTot);
+
+  // ===== ACUMULADO NEGATIVO / POSITIVO =====
+  var acumNeg=0, acumPos=0, mesesNeg=0, mesesPos=0;
+  periodos.forEach(function(pp){
+    var gastoPP=getTotalPeriodo(pp);
+    var metaPP=pp.metaVigente||getMeta(pp);
+    var saldoPP=metaPP-gastoPP;
+    if(saldoPP<0){ acumNeg+=Math.abs(saldoPP); mesesNeg++; }
+    else { acumPos+=saldoPP; mesesPos++; }
+  });
+  var liquido=acumPos-acumNeg;
+  var anNeg=document.getElementById('an-neg');
+  if(anNeg){ anNeg.textContent=brl(acumNeg); }
+  var anNegSub=document.getElementById('an-neg-sub');
+  if(anNegSub) anNegSub.textContent=mesesNeg+' período'+(mesesNeg!==1?'s':'')+' fecharam no vermelho';
+  var anPos=document.getElementById('an-pos');
+  if(anPos){ anPos.textContent=brl(acumPos); }
+  var anPosSub=document.getElementById('an-pos-sub');
+  if(anPosSub) anPosSub.textContent=mesesPos+' período'+(mesesPos!==1?'s':'')+' dentro da meta';
+  var anLiq=document.getElementById('an-liquido');
+  if(anLiq){ anLiq.textContent=brl(Math.abs(liquido)); anLiq.style.color=liquido>=0?'#2E7D32':'#C62828'; }
+  var anLiqSub=document.getElementById('an-liquido-sub');
+  if(anLiqSub){ anLiqSub.textContent=liquido>=0?'✓ No azul no ano':'⚠ No vermelho no ano'; anLiqSub.style.color=liquido>=0?'#2E7D32':'#C62828'; }
   var atm=document.getElementById('an-teto-mes');
   if(atm){
     atm.textContent=ma.mesesRestantes>0?brl(ma.tetoPorMes):'Ano completo';
@@ -1474,6 +1725,181 @@ function renderCategorias(){
   if(tabEl) tabEl.innerHTML=tabH;
 }
 
+// ===== TURNO DO DIA =====
+var turnoLinhas = []; // [{colId, entrada, saidaPrev, saidaAut, h50, h100, custo}]
+var turnoNextId = 1;
+
+function adicionarLinhaTurno(){
+  var ativos = colaboradores.filter(function(c){ return c.ativo!==false; });
+  if(!ativos.length){ alert('Nenhum colaborador ativo.'); return; }
+  var lid = turnoNextId++;
+  turnoLinhas.push({lid:lid, colId:ativos[0].id, entrada:'06:00', saidaPrev:'14:00', saidaAut:'16:00', h50:0, h100:0, custo:0});
+  renderTurnoTabela();
+}
+
+function removerLinhaTurno(lid){
+  turnoLinhas = turnoLinhas.filter(function(l){ return l.lid!==lid; });
+  renderTurnoTabela();
+}
+
+function calcLinhaTurno(lid){
+  var linha = turnoLinhas.find(function(l){ return l.lid===lid; });
+  if(!linha) return;
+  var entrada   = timeToMin(document.getElementById('t-ent-'+lid).value||'06:00');
+  var saidaPrev = timeToMin(document.getElementById('t-spv-'+lid).value||'14:00');
+  var saidaAut  = timeToMin(document.getElementById('t-sau-'+lid).value||'16:00');
+  var colId = parseInt(document.getElementById('t-col-'+lid).value);
+  if(saidaPrev<=entrada) saidaPrev+=1440;
+  if(saidaAut<=entrada)  saidaAut+=1440;
+  if(saidaAut<saidaPrev) saidaAut=saidaPrev;
+  var extraMin = saidaAut - saidaPrev;
+  var e50  = Math.min(extraMin, 120);
+  var e100 = Math.max(0, extraMin - 120);
+  var h50  = e50/60;
+  var h100 = e100/60;
+  var col  = getCol(colId);
+  var custo = col ? calcCusto(col.sal, h50, h100, 0) : 0;
+  linha.colId    = colId;
+  linha.entrada  = document.getElementById('t-ent-'+lid).value;
+  linha.saidaPrev= document.getElementById('t-spv-'+lid).value;
+  linha.saidaAut = document.getElementById('t-sau-'+lid).value;
+  linha.h50  = h50;
+  linha.h100 = h100;
+  linha.custo= custo;
+  // Atualizar células
+  document.getElementById('t-h50-'+lid).textContent  = fmtH(h50);
+  document.getElementById('t-h100-'+lid).textContent = h100>0?fmtH(h100):'—';
+  document.getElementById('t-cst-'+lid).textContent  = brl(custo);
+  atualizarResumoTurno();
+}
+
+function renderTurnoTabela(){
+  var tbody = document.getElementById('turno-tbody');
+  var vazio = document.getElementById('turno-vazio');
+  if(!turnoLinhas.length){
+    tbody.innerHTML='';
+    vazio.style.display='block';
+    atualizarResumoTurno();
+    return;
+  }
+  vazio.style.display='none';
+  var ativos = colaboradores.filter(function(c){ return c.ativo!==false; });
+  var h='';
+  turnoLinhas.forEach(function(l){
+    var opts='';
+    ativos.forEach(function(c){
+      opts+='<option value="'+c.id+'"'+(c.id===l.colId?' selected':'')+'>'+c.nome+'</option>';
+    });
+    h+='<tr id="t-row-'+l.lid+'" style="border-bottom:1px solid #ECEFF1;">'+
+      '<td style="padding:8px 6px;"><select style="font-size:12px;padding:5px 7px;border:1px solid #CFD8DC;border-radius:6px;width:100%;min-width:180px;" id="t-col-'+l.lid+'" onchange="calcLinhaTurno('+l.lid+')">'+opts+'</select></td>'+
+      '<td style="padding:8px 6px;text-align:center;"><input type="time" id="t-ent-'+l.lid+'" value="'+l.entrada+'" style="padding:5px 7px;border:1px solid #CFD8DC;border-radius:6px;font-size:12px;width:95px;" oninput="calcLinhaTurno('+l.lid+')"/></td>'+
+      '<td style="padding:8px 6px;text-align:center;"><input type="time" id="t-spv-'+l.lid+'" value="'+l.saidaPrev+'" style="padding:5px 7px;border:1px solid #CFD8DC;border-radius:6px;font-size:12px;width:95px;" oninput="calcLinhaTurno('+l.lid+')"/></td>'+
+      '<td style="padding:8px 6px;text-align:center;"><input type="time" id="t-sau-'+l.lid+'" value="'+l.saidaAut+'" style="padding:5px 7px;border:1px solid #CFD8DC;border-radius:6px;font-size:12px;width:95px;" oninput="calcLinhaTurno('+l.lid+')"/></td>'+
+      '<td style="padding:8px 6px;text-align:center;font-weight:600;color:#1565C0;" id="t-h50-'+l.lid+'">'+fmtH(l.h50)+'</td>'+
+      '<td style="padding:8px 6px;text-align:center;font-weight:600;color:#C62828;" id="t-h100-'+l.lid+'">'+(l.h100>0?fmtH(l.h100):'—')+'</td>'+
+      '<td style="padding:8px 6px;text-align:right;font-weight:700;color:#2E7D32;" id="t-cst-'+l.lid+'">'+brl(l.custo)+'</td>'+
+      '<td style="padding:8px 6px;text-align:center;"><button onclick="removerLinhaTurno('+l.lid+')" style="background:none;border:none;color:#EF9A9A;cursor:pointer;font-size:16px;">✕</button></td>'+
+    '</tr>';
+  });
+  tbody.innerHTML=h;
+  atualizarResumoTurno();
+}
+
+function atualizarResumoTurno(){
+  var totalCusto = turnoLinhas.reduce(function(s,l){ return s+l.custo; },0);
+  var totalH50   = turnoLinhas.reduce(function(s,l){ return s+l.h50; },0);
+  var totalH100  = turnoLinhas.reduce(function(s,l){ return s+l.h100; },0);
+
+  // Rodapé da tabela
+  var tc = document.getElementById('turno-tot-custo');
+  if(tc) tc.textContent = brl(totalCusto);
+  var th50 = document.getElementById('turno-tot-h50');
+  if(th50) th50.textContent = totalH50>0?fmtH(totalH50):'—';
+  var th100 = document.getElementById('turno-tot-h100');
+  if(th100) th100.textContent = totalH100>0?fmtH(totalH100):'—';
+
+  // Painel de impacto
+  var p   = getPeriodo(periodoAtivo);
+  var meta= getMeta(p);
+  var gasto = p ? getTotalPeriodo(p) : 0;
+  var apos  = gasto + totalCusto;
+  var saldo = meta - apos;
+  var pct   = Math.min(apos/meta, 1);
+  var cor   = pct>=1?'#C62828':pct>=0.8?'#E65100':'#2E7D32';
+
+  var tcd=document.getElementById('turno-custo-dia');
+  if(tcd){ tcd.textContent=brl(totalCusto); tcd.style.color=totalCusto>0?'#E65100':'#546E7A'; }
+  var tac=document.getElementById('turno-acumulado');
+  if(tac) tac.textContent=brl(gasto);
+  var tsa=document.getElementById('turno-saldo-apos');
+  if(tsa){ tsa.textContent=brl(Math.abs(saldo)); tsa.style.color=saldo>=0?'#2E7D32':'#C62828'; }
+  var tpm=document.getElementById('turno-pct-meta');
+  if(tpm){ tpm.textContent=(pct*100).toFixed(1)+'%'; tpm.style.color=cor; }
+  var tpg=document.getElementById('turno-prog');
+  if(tpg){ tpg.style.width=(pct*100)+'%'; tpg.style.background=cor; }
+
+  // Alerta
+  var alt=document.getElementById('turno-alerta');
+  if(alt){
+    if(apos>meta){
+      alt.style.display='block';
+      alt.innerHTML='<div style="background:#FFEBEE;border:1px solid #EF9A9A;border-radius:8px;padding:10px 14px;font-size:13px;color:#C62828;font-weight:600;">⚠ Este turno ultrapassaria a meta do período em <strong>'+brl(apos-meta)+'</strong>. Considere reduzir colaboradores ou horas.</div>';
+    } else if(pct>=0.8){
+      alt.style.display='block';
+      alt.innerHTML='<div style="background:#FFF3E0;border:1px solid #FFCC80;border-radius:8px;padding:10px 14px;font-size:13px;color:#E65100;">⚡ Após este turno, você terá usado <strong>'+(pct*100).toFixed(1)+'%</strong> da meta. Saldo restante: <strong>'+brl(saldo)+'</strong>.</div>';
+    } else {
+      alt.style.display='block';
+      alt.innerHTML='<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;padding:10px 14px;font-size:13px;color:#2E7D32;">✓ Dentro do orçamento. Saldo restante após este turno: <strong>'+brl(saldo)+'</strong>.</div>';
+    }
+  }
+}
+
+function autorizarTurno(){
+  if(!turnoLinhas.length){ alert('Adicione ao menos um colaborador.'); return; }
+  var motivo=document.getElementById('turno-motivo').value.trim();
+  var data=document.getElementById('turno-data').value;
+  if(!motivo){ document.getElementById('turno-motivo').style.borderColor='#C62828'; document.getElementById('turno-motivo').focus(); return; }
+  if(!data){ alert('Informe a data do turno.'); return; }
+  document.getElementById('turno-motivo').style.borderColor='#CFD8DC';
+  var dataFmt=data.split('-').reverse().join('/');
+  var p=getPeriodo(periodoAtivo);
+  var meta=getMeta(p);
+  var gasto=p?getTotalPeriodo(p):0;
+  var totalCusto=turnoLinhas.reduce(function(s,l){return s+l.custo;},0);
+  var novoTotal=gasto+totalCusto;
+  var ok=novoTotal<=meta;
+  var agora=new Date();
+  var dataReg=agora.toLocaleDateString('pt-BR')+' '+agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  // Registrar cada colaborador no histórico
+  turnoLinhas.forEach(function(l){
+    var col=getCol(l.colId);
+    var vh=(col?col.sal:0)/220;
+    historico.unshift({
+      nome:col?col.nome:'—', cargo:col?col.cargo:'',
+      periodo:p?p.nome:'—', data:dataReg,
+      dataEscala:dataFmt, entrada:l.entrada, saidaPrev:l.saidaPrev, saidaAut:l.saidaAut,
+      h50:l.h50, h100:l.h100, hNot:0,
+      v50:vh*1.05*l.h50, v100:vh*2.10*l.h100, vNot:0,
+      custo:l.custo, just:'[TURNO '+dataFmt+'] '+motivo,
+      status:ok?'autorizado':'bloqueado', turno:true
+    });
+  });
+  renderHistorico();
+  if(ok){
+    alert('Turno '+dataFmt+' autorizado! '+turnoLinhas.length+' colaborador(es). Custo: '+brl(totalCusto));
+  } else {
+    alert('Turno registrado. META EXCEDIDA em '+brl(novoTotal-meta)+'. Veja o historico.');
+  }
+  render();
+}
+
+function limparTurno(){
+  if(turnoLinhas.length&&!confirm('Limpar todos os colaboradores do turno?')) return;
+  turnoLinhas=[];
+  turnoNextId=1;
+  renderTurnoTabela();
+}
+
 function renderDistribuicaoAnual(anoGasto,anoMeta,saldoRestante,tetoPorMes,nPeriodos){
   var div=document.getElementById('dist-mensal');
   if(!div) return;
@@ -1814,7 +2240,80 @@ function rodarIA(){
   if(btn){btn.disabled=false;btn.textContent='🤖 Analisar novamente';}
 }
 
-render();
+// ===== EXPORT / IMPORT =====
+function exportarDados(){
+  var dados={
+    versao:'1.0',
+    data:new Date().toISOString(),
+    META_GLOBAL:META_GLOBAL,
+    colaboradores:colaboradores,
+    periodos:periodos,
+    historico:historico,
+    periodoAtivo:periodoAtivo,
+    nextColId:nextColId,
+    nextPeriodoId:nextPeriodoId
+  };
+  var json=JSON.stringify(dados,null,2);
+  var blob=new Blob([json],{type:'application/json'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;
+  var hoje=new Date().toISOString().split('T')[0];
+  a.download='horas_extras_backup_'+hoje+'.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importarDados(input){
+  var file=input.files[0];
+  if(!file) return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var dados=JSON.parse(e.target.result);
+      if(!dados.colaboradores||!dados.periodos){
+        alert('Arquivo inválido. Use um backup exportado por este sistema.');
+        return;
+      }
+      if(!confirm('Importar dados do arquivo "'+file.name+'"?\nOs dados atuais serão substituídos.')) return;
+      META_GLOBAL=dados.META_GLOBAL||10000;
+      colaboradores=dados.colaboradores;
+      periodos=dados.periodos;
+      historico=dados.historico||[];
+      periodoAtivo=dados.periodoAtivo||1;
+      nextColId=dados.nextColId||15;
+      nextPeriodoId=dados.nextPeriodoId||2;
+      salvarLS();
+      render();
+      alert('✅ Dados importados com sucesso!');
+    }catch(err){
+      alert('Erro ao importar: '+err.message);
+    }
+    input.value='';
+  };
+  reader.readAsText(file);
+}
+
+// ===== INICIAR: carrega da planilha Google Sheets =====
+// carregarLS() chama render() automaticamente após carregar os dados
+carregarLS();
+
+// ===== AUTO-SAVE: intercepta render() para salvar sempre =====
+var _renderOriginal = render;
+render = function(){
+  _renderOriginal();
+  if(_carregado) salvarLS();
+};
+
+// Salva a cada 60 segundos (segurança extra)
+setInterval(function(){
+  if(_carregado) salvarLS();
+}, 60000);
+
+// Salva ao fechar/sair da aba
+window.addEventListener('beforeunload', function(){
+  if(_carregado) salvarLS();
+});
 
 </script>
 </body>
