@@ -87,9 +87,11 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
 .hist-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;gap:8px;flex-wrap:wrap;}
 .hist-just{font-size:12px;color:#546E7A;margin-top:5px;padding:7px 10px;background:#F9FAFB;border-radius:6px;border-left:3px solid #CFD8DC;}
 .periodo-bar{background:#fff;border-bottom:1px solid #CFD8DC;padding:.6rem 1.5rem;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
-.periodo-item{padding:5px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #CFD8DC;background:#fff;color:#546E7A;white-space:nowrap;}
+.periodo-item{padding:5px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:grab;border:1px solid #CFD8DC;background:#fff;color:#546E7A;white-space:nowrap;user-select:none;transition:transform .15s,box-shadow .15s;}
 .periodo-item.active{background:#1565C0;color:#fff;border-color:#1565C0;}
 .periodo-item:hover:not(.active){background:#F0F4FF;border-color:#1565C0;color:#1565C0;}
+.periodo-item.dragging{opacity:.4;cursor:grabbing;transform:scale(.96);}
+.periodo-item.drag-over{box-shadow:3px 0 0 #1565C0;transform:translateX(3px);}
 .empty{text-align:center;padding:2rem;color:#90A4AE;font-size:13px;}
 .lanc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;margin-bottom:1.25rem;}
 .lanc-card{background:#fff;border:1px solid #CFD8DC;border-radius:10px;padding:1rem;}
@@ -564,12 +566,13 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
   <div class="modal">
     <h2 id="mp-titulo">Novo período</h2>
     <input type="hidden" id="mp-id"/>
-    <div class="fg fg1">
-      <div><label class="lbl">Nome do período</label><input id="mp-nome" placeholder="Ex: Abril/Maio, 16/04 a 15/05..."/></div>
-    </div>
     <div class="fg fg2">
-      <div><label class="lbl">Data início</label><input type="date" id="mp-inicio"/></div>
-      <div><label class="lbl">Data fim</label><input type="date" id="mp-fim"/></div>
+      <div><label class="lbl">Data início <span style="color:#C62828;">*</span></label><input type="date" id="mp-inicio" oninput="sugerirNomePeriodo()"/></div>
+      <div><label class="lbl">Data fim</label><input type="date" id="mp-fim" oninput="sugerirNomePeriodo()"/></div>
+    </div>
+    <div style="background:#E3F2FD;border-radius:8px;padding:8px 12px;font-size:12px;color:#1565C0;margin-bottom:10px;">📅 A data de início determina em qual mês o período aparece. Obrigatória.</div>
+    <div class="fg fg1">
+      <div><label class="lbl">Nome do período</label><input id="mp-nome" placeholder="Ex: Fevereiro/Março, Abril/Maio..."/></div>
     </div>
     <div><label class="lbl">Meta específica (R$) <span style="color:#546E7A;font-weight:400;">— vazio = usa meta global</span></label>
       <input type="number" id="mp-meta" step="100" placeholder="10000"/></div>
@@ -629,7 +632,11 @@ var COLABORADORES_BASE = [
 
 var PERIODOS_BASE = [
   {
-    id:1, nome:"Março/Abril", inicio:"2026-03-16", fim:"2026-04-15", meta:null, metaVigente:10000,
+    id:1, nome:"Dezembro/Janeiro", inicio:"2025-12-16", fim:"2026-01-15", meta:null, metaVigente:10000,
+    lancamentos:{}
+  },
+  {
+    id:2, nome:"Março/Abril", inicio:"2026-03-16", fim:"2026-04-15", meta:null, metaVigente:10000,
     lancamentos:{
       1: {h50:"20:01",h100:"27:19",hNot:"00:41",hTot:"47:20",just:""},
       2: {h50:"10:41",h100:"17:40",hNot:"00:02",hTot:"28:21",just:""},
@@ -651,7 +658,7 @@ var PERIODOS_BASE = [
 
 var META_BASE = 10000;
 var NEXT_COL_BASE = 15;
-var NEXT_PERIODO_BASE = 2;
+var NEXT_PERIODO_BASE = 3;
 
 // ===== GOOGLE SHEETS — BANCO DE DADOS NA NUVEM =====
 var API_URL = 'https://script.google.com/macros/s/AKfycbz0pTNmc1E6Qq0irUQ6npCUQeAeRjUNJ9oS_hGfQceMfBBi_wwTFKQIqZkk7tvGFkkb2g/exec';
@@ -954,11 +961,19 @@ function render(){
   periodos.forEach(function(pp){var t=getTotalPeriodo(pp);if(t>maxGastoAnual)maxGastoAnual=t;});
   if(maxGastoAnual<META_GLOBAL) maxGastoAnual=META_GLOBAL;
   var ga='<div style="display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px;align-items:end;height:100px;margin-bottom:6px;">';
-  // Mapear períodos por mês real (mesmo critério da distribuição)
+  // Mapear períodos por mês real
+  // Período que começa em dez/2025 mas termina em jan/2026 → posiciona em Janeiro (índice 0)
   var ppPorMes12={};
   periodos.forEach(function(pp){
     if(pp.inicio){
-      var mi=parseInt(pp.inicio.split('-')[1],10)-1;
+      var partes=pp.inicio.split('-');
+      var anoInicio=parseInt(partes[0]);
+      var miInicio=parseInt(partes[1],10)-1;
+      // Se o período começa no ano anterior (ex: dez 2025), usa o mês do fim
+      var mi=miInicio;
+      if(anoInicio<2026 && pp.fim){
+        mi=parseInt(pp.fim.split('-')[1],10)-1;
+      }
       ppPorMes12[mi]=pp;
     } else {
       ppPorMes12[periodos.indexOf(pp)]=pp;
@@ -1081,11 +1096,60 @@ function render(){
 // ===== PERÍODO TABS =====
 function renderPeriodoTabs(){
   var div=document.getElementById('periodo-tabs');
-  var h='';
-  periodos.forEach(function(p){
-    h+='<button class="periodo-item'+(p.id===periodoAtivo?' active':'')+'" onclick="selecionarPeriodo('+p.id+')">'+p.nome+'</button>';
+  div.innerHTML='';
+
+  // Ordenar períodos por data de início antes de renderizar
+  var ordenados=periodos.slice().sort(function(a,b){
+    var da=a.inicio||'9999';
+    var db=b.inicio||'9999';
+    return da<db?-1:da>db?1:0;
   });
-  div.innerHTML=h;
+
+  ordenados.forEach(function(p,idx){
+    var btn=document.createElement('button');
+    btn.className='periodo-item'+(p.id===periodoAtivo?' active':'');
+    btn.textContent=p.nome;
+    btn.setAttribute('draggable','true');
+    btn.setAttribute('data-id',p.id);
+
+    // Clique para selecionar
+    btn.onclick=function(){ selecionarPeriodo(p.id); };
+
+    // Drag events
+    btn.addEventListener('dragstart',function(e){
+      e.dataTransfer.setData('text/plain',p.id);
+      setTimeout(function(){btn.classList.add('dragging');},0);
+    });
+    btn.addEventListener('dragend',function(){
+      btn.classList.remove('dragging');
+      div.querySelectorAll('.periodo-item').forEach(function(el){
+        el.classList.remove('drag-over');
+      });
+    });
+    btn.addEventListener('dragover',function(e){
+      e.preventDefault();
+      div.querySelectorAll('.periodo-item').forEach(function(el){
+        el.classList.remove('drag-over');
+      });
+      btn.classList.add('drag-over');
+    });
+    btn.addEventListener('drop',function(e){
+      e.preventDefault();
+      var fromId=parseInt(e.dataTransfer.getData('text/plain'));
+      var toId=p.id;
+      if(fromId===toId) return;
+      // Reordenar: trocar posições no array periodos
+      var fromIdx=periodos.findIndex(function(x){return x.id===fromId;});
+      var toIdx=periodos.findIndex(function(x){return x.id===toId;});
+      if(fromIdx<0||toIdx<0) return;
+      var item=periodos.splice(fromIdx,1)[0];
+      periodos.splice(toIdx,0,item);
+      renderPeriodoTabs();
+      if(window._carregado!==false) salvarLS();
+    });
+
+    div.appendChild(btn);
+  });
 }
 
 function selecionarPeriodo(id){periodoAtivo=id;render();}
@@ -1298,11 +1362,35 @@ function abrirModalPeriodo(id){
   }
 }
 
+var MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+function sugerirNomePeriodo(){
+  var inicio = document.getElementById('mp-inicio').value;
+  var fim    = document.getElementById('mp-fim').value;
+  var nomeEl = document.getElementById('mp-nome');
+  if(!inicio) return;
+  var mesInicio = parseInt(inicio.split('-')[1],10) - 1;
+  var nomeSugerido = '';
+  if(fim){
+    var mesFim = parseInt(fim.split('-')[1],10) - 1;
+    if(mesInicio === mesFim){
+      nomeSugerido = MESES_PT[mesInicio] + ' ' + inicio.split('-')[0];
+    } else {
+      nomeSugerido = MESES_PT[mesInicio] + '/' + MESES_PT[mesFim];
+    }
+  } else {
+    nomeSugerido = MESES_PT[mesInicio] + ' ' + inicio.split('-')[0];
+  }
+  // Só sugere se o campo estiver vazio
+  if(!nomeEl.value) nomeEl.value = nomeSugerido;
+}
+
 function salvarPeriodo(){
   var id=document.getElementById('mp-id').value;
   var metaVal=parseFloat(document.getElementById('mp-meta').value)||null;
   var obj={nome:document.getElementById('mp-nome').value.trim(),inicio:document.getElementById('mp-inicio').value,fim:document.getElementById('mp-fim').value,meta:metaVal,lancamentos:{}};
   if(!obj.nome){alert('Informe o nome do período.');return;}
+  if(!obj.inicio){alert('Informe a data de início do período.\nEla é usada para posicionar o período no mês correto no calendário anual.');return;}
   if(id){
     obj.id=parseInt(id);
     var ex=getPeriodo(obj.id);
@@ -1923,15 +2011,20 @@ function renderDistribuicaoAnual(anoGasto,anoMeta,saldoRestante,tetoPorMes,nPeri
     '<th style="padding:7px 10px;border-bottom:1px solid #CFD8DC;color:#546E7A;font-size:11px;text-transform:uppercase;width:140px;">Status</th>'+
     '</tr></thead><tbody>';
 
-  // Mapear períodos pelo mês real da data de início
-  // Ex: inicio "2026-03-16" → mês 2 (índice 0-based = Março)
+  // Mapear períodos pelo mês real
+  // Período que começa em dez/2025 mas termina em jan/2026 → posiciona em Janeiro (índice 0)
   var periodosPorMes={};
   periodos.forEach(function(pp){
     if(pp.inicio){
-      var mesIdx=parseInt(pp.inicio.split('-')[1],10)-1; // 0=Jan, 11=Dez
-      periodosPorMes[mesIdx]=pp;
+      var partes=pp.inicio.split('-');
+      var anoInicio=parseInt(partes[0]);
+      var miInicio=parseInt(partes[1],10)-1;
+      var mi=miInicio;
+      if(anoInicio<2026 && pp.fim){
+        mi=parseInt(pp.fim.split('-')[1],10)-1;
+      }
+      periodosPorMes[mi]=pp;
     } else {
-      // Sem data: usa posição no array como fallback
       var idx=periodos.indexOf(pp);
       periodosPorMes[idx]=pp;
     }
