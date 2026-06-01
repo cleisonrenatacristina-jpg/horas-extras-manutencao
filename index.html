@@ -97,7 +97,7 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
 .lanc-card{background:#fff;border:1px solid #CFD8DC;border-radius:10px;padding:1rem;}
 .lanc-nome{font-size:13px;font-weight:600;margin-bottom:2px;}
 .lanc-cargo{font-size:11px;color:#546E7A;margin-bottom:10px;}
-.lanc-inputs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.lanc-inputs{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;}
 .lanc-inputs label{font-size:11px;color:#546E7A;font-weight:600;display:block;margin-bottom:3px;}
 .lanc-inputs input{padding:6px 8px;font-size:13px;}
 .lanc-custo{margin-top:8px;font-size:12px;color:#546E7A;display:flex;justify-content:space-between;align-items:center;}
@@ -237,13 +237,39 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:8px;">
       <div>
         <div style="font-size:15px;font-weight:600;" id="lanc-titulo">—</div>
-        <div style="font-size:12px;color:#546E7A;margin-top:2px;">Informe as horas de cada colaborador. Os custos são calculados automaticamente.</div>
+        <div style="font-size:12px;color:#546E7A;margin-top:2px;">Informe as horas de cada colaborador. Os custos e DSR são calculados automaticamente.</div>
       </div>
       <button class="btn btn-g" onclick="salvarLancamento()">Salvar lançamentos</button>
     </div>
+
+    <!-- CONFIGURAÇÃO DSR DO PERÍODO -->
+    <div style="background:#fff;border:1px solid #CFD8DC;border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.25rem;">
+      <div style="font-size:13px;font-weight:600;color:#1a1a2e;margin-bottom:10px;">
+        Configuração do DSR — válido para todos os colaboradores deste período
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;align-items:end;">
+        <div>
+          <label class="lbl">Dias úteis do mês <span style="color:#546E7A;font-weight:400;">(seg a sáb)</span></label>
+          <input type="number" id="dsr-dias-uteis" min="1" max="31" step="1" placeholder="Ex: 26" oninput="atualizarTodosDSR()"/>
+        </div>
+        <div>
+          <label class="lbl">Domingos + Feriados <span style="color:#546E7A;font-weight:400;">(do mês)</span></label>
+          <input type="number" id="dsr-domingos" min="0" max="10" step="1" placeholder="Ex: 5" oninput="atualizarTodosDSR()"/>
+        </div>
+        <div style="background:#F0F4FF;border-radius:8px;padding:10px 12px;font-size:12px;color:#1565C0;">
+          <strong>Fórmula DSR:</strong><br>
+          (H50% + H100% + HNot) ÷ dias úteis × domingos/feriados
+          <div id="dsr-feriados-info" style="margin-top:6px;font-size:11px;color:#546E7A;font-style:italic;"></div>
+        </div>
+      </div>
+      <div id="dsr-aviso" style="display:none;margin-top:8px;font-size:12px;color:#E65100;background:#FFF3E0;padding:6px 10px;border-radius:6px;">
+        ⚠ Preencha os dias úteis e domingos/feriados para calcular o DSR automaticamente.
+      </div>
+    </div>
+
     <div class="lanc-grid" id="lanc-grid"></div>
     <div style="background:#F0F4FF;border-radius:8px;padding:10px 14px;font-size:12px;color:#1565C0;">
-      <strong>Fórmulas:</strong> HE 50% = (sal÷220)×1,05×h &nbsp;|&nbsp; HE 100% = (sal÷220)×2,10×h &nbsp;|&nbsp; Noturna = (sal÷220)×0,35×h
+      <strong>Fórmulas:</strong> HE 50% = (sal÷220)×1,05×h &nbsp;|&nbsp; HE 100% = (sal÷220)×2,10×h &nbsp;|&nbsp; Noturna = (sal÷220)×0,35×h &nbsp;|&nbsp; DSR = (H50%+H100%+HNot)÷dias_úteis×domingos_feriados
     </div>
   </div>
 
@@ -1173,15 +1199,59 @@ function renderPeriodoTabs(){
 function selecionarPeriodo(id){periodoAtivo=id;render();}
 
 // ===== LANÇAR HORAS =====
+function calcDSR(h50dec, h100dec, hNotDec, diasUteis, domingos){
+  // Fórmula: (total horas em decimal) / dias_uteis * domingos_feriados
+  if(!diasUteis||diasUteis<=0) return 0;
+  var totalH = h50dec + h100dec + hNotDec;
+  return totalH / diasUteis * domingos;
+}
+
 function renderLancar(){
   var p=getPeriodo(periodoAtivo);
   document.getElementById('lanc-titulo').textContent=p?'Lançar horas — '+p.nome:'—';
+
+  // Carregar config DSR do período
+  // Primeiro tenta usar o valor salvo; se não tiver, usa o calendário 2026
+  var diasUteis = p&&p.dsrDiasUteis ? p.dsrDiasUteis : '';
+  var domingos  = p&&p.dsrDomingos  ? p.dsrDomingos  : '';
+
+  // Auto-preencher pelo calendário 2026 se ainda não tiver valor
+  if((!diasUteis||!domingos) && p && p.fim){
+    var mesFim = parseInt(p.fim.split('-')[1],10)-1;
+    var cal = CALENDARIO_2026[mesFim];
+    if(cal){
+      if(!diasUteis) diasUteis = cal.diasUteis;
+      if(!domingos)  domingos  = cal.domFer;
+    }
+  }
+
+  var elDU = document.getElementById('dsr-dias-uteis');
+  var elDom = document.getElementById('dsr-domingos');
+  var elFer = document.getElementById('dsr-feriados-info');
+  if(elDU)  elDU.value  = diasUteis;
+  if(elDom) elDom.value = domingos;
+
+  // Mostrar feriados do mês como informação
+  if(elFer && p && p.fim){
+    var mesFim2 = parseInt(p.fim.split('-')[1],10)-1;
+    var cal2 = CALENDARIO_2026[mesFim2];
+    if(cal2) elFer.textContent = '📅 Feriados do mês: ' + cal2.feriados;
+  }
+
   var g='';
   colaboradores.filter(function(c){return c.ativo!==false;}).forEach(function(c){
     var l=p?getLanc(p,c.id):null;
     var h50=l?l.h50:'0:00', h100=l?l.h100:'0:00', hNot=l?l.hNot:'0:00', hTot=l?l.hTot:'0:00';
     var just=l?l.just:'';
+    var dsr=l?l.dsr:'0:00';
     var custo=l?calcCusto(c.sal,hms(h50),hms(h100),hms(hNot)):0;
+    // Calcular valor DSR
+    var du=parseFloat(diasUteis)||0;
+    var dom=parseFloat(domingos)||0;
+    var dsrDec=calcDSR(hms(h50),hms(h100),hms(hNot),du,dom);
+    var valorDsr=dsrDec>0?(c.sal/220)*dsrDec*1.0:0; // DSR usa VH base
+    var vdsr=dsrDec>0?brl(valorDsr):'—';
+    if(dsrDec>0) dsr=decToHMS(dsrDec);
     g+='<div class="lanc-card">'+
       '<div class="lanc-nome">'+c.nome+'</div>'+
       '<div class="lanc-cargo">'+c.cargo+' · '+brl(c.sal)+'/mês</div>'+
@@ -1190,9 +1260,14 @@ function renderLancar(){
         '<div><label>H. 100%</label><input type="text" id="li-h100-'+c.id+'" value="'+h100+'" placeholder="0:00" oninput="atualizarCustoCard('+c.id+')"/></div>'+
         '<div><label>H. Noturna</label><input type="text" id="li-hnot-'+c.id+'" value="'+hNot+'" placeholder="0:00" oninput="atualizarCustoCard('+c.id+')"/></div>'+
         '<div><label>H. Total</label><input type="text" id="li-htot-'+c.id+'" value="'+hTot+'" placeholder="0:00"/></div>'+
-        '<div style="grid-column:span 2;"><label>Justificativa</label><input type="text" id="li-just-'+c.id+'" value="'+just.replace(/"/g,'&quot;')+'" placeholder="Motivo do escalonamento..."/></div>'+
+        '<div><label style="color:#1565C0;">DSR</label><input type="text" id="li-dsr-'+c.id+'" value="'+dsr+'" placeholder="0:00" readonly style="background:#F0F4FF;color:#1565C0;font-weight:600;cursor:default;"/></div>'+
+        '<div><label style="color:#1565C0;">Valor DSR</label><input type="text" id="li-vdsr-'+c.id+'" value="'+vdsr+'" placeholder="R$ 0,00" readonly style="background:#F0F4FF;color:#1565C0;font-weight:600;cursor:default;"/></div>'+
+        '<div style="grid-column:span 3;"><label>Justificativa</label><input type="text" id="li-just-'+c.id+'" value="'+just.replace(/"/g,'&quot;')+'" placeholder="Motivo do escalonamento..."/></div>'+
       '</div>'+
-      '<div class="lanc-custo"><span>Custo calculado</span><strong id="li-custo-'+c.id+'">'+brl(custo)+'</strong></div>'+
+      '<div class="lanc-custo">'+
+        '<span>Custo HE</span><strong id="li-custo-'+c.id+'">'+brl(custo)+'</strong>'+
+        '<span style="margin-left:12px;color:#1565C0;">+ DSR</span><strong id="li-custo-total-'+c.id+'" style="color:#1565C0;">'+brl(custo+valorDsr)+'</strong>'+
+      '</div>'+
     '</div>';
   });
   document.getElementById('lanc-grid').innerHTML=g||'<div class="empty">Nenhum colaborador.</div>';
@@ -1212,7 +1287,52 @@ function atualizarCustoCard(colId){
   var hNot=hms(document.getElementById('li-hnot-'+colId).value);
   var hTotal=h50+h100+hNot;
   document.getElementById('li-htot-'+colId).value=decToHMS(hTotal);
-  document.getElementById('li-custo-'+colId).textContent=brl(calcCusto(c.sal,h50,h100,hNot));
+  var custo=calcCusto(c.sal,h50,h100,hNot);
+  document.getElementById('li-custo-'+colId).textContent=brl(custo);
+  // Recalcular DSR
+  var du=parseFloat(document.getElementById('dsr-dias-uteis').value)||0;
+  var dom=parseFloat(document.getElementById('dsr-domingos').value)||0;
+  var dsrDec=calcDSR(h50,h100,hNot,du,dom);
+  var elDsr=document.getElementById('li-dsr-'+colId);
+  var elVDsr=document.getElementById('li-vdsr-'+colId);
+  var elTotal=document.getElementById('li-custo-total-'+colId);
+  var valorDsr=dsrDec>0?(c.sal/220)*dsrDec:0;
+  if(elDsr) elDsr.value=dsrDec>0?decToHMS(dsrDec):'0:00';
+  if(elVDsr) elVDsr.value=dsrDec>0?brl(valorDsr):'—';
+  if(elTotal) elTotal.textContent=brl(custo+valorDsr);
+}
+
+function atualizarTodosDSR(){
+  // Salvar config DSR no período
+  var p=getPeriodo(periodoAtivo);
+  var du=parseFloat(document.getElementById('dsr-dias-uteis').value)||0;
+  var dom=parseFloat(document.getElementById('dsr-domingos').value)||0;
+  if(p){ p.dsrDiasUteis=du; p.dsrDomingos=dom; }
+  // Mostrar/ocultar aviso
+  var aviso=document.getElementById('dsr-aviso');
+  if(aviso) aviso.style.display=(du>0&&dom>0)?'none':'block';
+  // Recalcular todos os cards visíveis
+  colaboradores.filter(function(c){return c.ativo!==false;}).forEach(function(c){
+    atualizarCostoCard_DSR(c.id,du,dom);
+  });
+}
+
+function atualizarCostoCard_DSR(colId,du,dom){
+  var c=getCol(colId); if(!c) return;
+  var elH50=document.getElementById('li-h50-'+colId);
+  if(!elH50) return;
+  var h50=hms(elH50.value);
+  var h100=hms(document.getElementById('li-h100-'+colId).value);
+  var hNot=hms(document.getElementById('li-hnot-'+colId).value);
+  var custo=calcCusto(c.sal,h50,h100,hNot);
+  var dsrDec=calcDSR(h50,h100,hNot,du,dom);
+  var valorDsr=dsrDec>0?(c.sal/220)*dsrDec:0;
+  var elDsr=document.getElementById('li-dsr-'+colId);
+  var elVDsr=document.getElementById('li-vdsr-'+colId);
+  var elTotal=document.getElementById('li-custo-total-'+colId);
+  if(elDsr) elDsr.value=dsrDec>0?decToHMS(dsrDec):'0:00';
+  if(elVDsr) elVDsr.value=dsrDec>0?brl(valorDsr):'—';
+  if(elTotal) elTotal.textContent=brl(custo+valorDsr);
 }
 
 function salvarLancamento(){
@@ -1228,6 +1348,7 @@ function salvarLancamento(){
       h100:document.getElementById('li-h100-'+c.id).value.trim()||'0:00',
       hNot:document.getElementById('li-hnot-'+c.id).value.trim()||'0:00',
       hTot:document.getElementById('li-htot-'+c.id).value.trim()||'0:00',
+      dsr:document.getElementById('li-dsr-'+c.id)?document.getElementById('li-dsr-'+c.id).value.trim()||'0:00':'0:00',
       just:document.getElementById('li-just-'+c.id).value.trim(),
     };
   });
@@ -1381,6 +1502,23 @@ function abrirModalPeriodo(id){
 }
 
 var MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+// Calendário 2026 — dias úteis (seg-sáb) e domingos+feriados por mês
+// Fonte: Calendário Liv Up 2026
+var CALENDARIO_2026 = {
+  0:  {diasUteis:24, domFer:5,  feriados:'01/01 Ano Novo'},
+  1:  {diasUteis:22, domFer:6,  feriados:'18/02 Aniv.Itapevi, 17/02 Carnaval(descanso)'},
+  2:  {diasUteis:26, domFer:4,  feriados:'—'},
+  3:  {diasUteis:24, domFer:6,  feriados:'03/04 Sexta-Feira Santa, 21/04 Tiradentes'},
+  4:  {diasUteis:25, domFer:5,  feriados:'01/05 Dia do Trabalho, 04/05 Descanso'},
+  5:  {diasUteis:25, domFer:5,  feriados:'04/06 Corpus Christi, 01/06 Descanso'},
+  6:  {diasUteis:26, domFer:5,  feriados:'09/07 Rev.Constitucionalista, 06/07 Descanso'},
+  7:  {diasUteis:26, domFer:4,  feriados:'—'},
+  8:  {diasUteis:25, domFer:5,  feriados:'07/09 Independência do Brasil'},
+  9:  {diasUteis:25, domFer:5,  feriados:'12/10 N.Sra Aparecida'},
+  10: {diasUteis:23, domFer:7,  feriados:'02/11 Finados, 15/11 República, 20/11 Consciência Negra'},
+  11: {diasUteis:17, domFer:4,  feriados:'25/12 Natal, Recesso 22/12~'},
+};
 
 // Regra: o nome do período = mês de fechamento = mês da data FIM
 // Ex: 16/01 a 15/02 → "Fevereiro"
