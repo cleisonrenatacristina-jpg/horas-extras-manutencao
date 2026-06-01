@@ -269,7 +269,7 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
 
     <div class="lanc-grid" id="lanc-grid"></div>
     <div style="background:#F0F4FF;border-radius:8px;padding:10px 14px;font-size:12px;color:#1565C0;">
-      <strong>Fórmulas:</strong> HE 50% = (sal÷220)×0,5×h &nbsp;|&nbsp; HE 100% = (sal÷220)×1,0×h &nbsp;|&nbsp; Noturna = (sal÷220)×0,35×h &nbsp;|&nbsp; DSR = (H50%+H100%+HNot)÷dias_úteis×domingos_feriados
+      <strong>Fórmulas:</strong> HE 50% = (sal÷220)×1,5×h &nbsp;|&nbsp; HE 100% = (sal÷220)×2,0×h &nbsp;|&nbsp; Noturna = (sal÷220)×0,35×h &nbsp;|&nbsp; DSR = (H50%+H100%+HNot)÷dias_úteis×domingos_feriados
     </div>
   </div>
 
@@ -387,7 +387,7 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
         <textarea id="sim-just" rows="3" placeholder="Ex: Manutenção corretiva urgente no ar-condicionado do bloco A. Aprovado pela supervisão..."></textarea>
       </div>
       <div style="background:#F0F4FF;border-radius:8px;padding:9px 13px;font-size:12px;color:#1565C0;margin-bottom:1rem;">
-        <strong>Fórmulas:</strong> HE 50% = (sal÷220)×0,5×h &nbsp;|&nbsp; HE 100% = (sal÷220)×1,0×h &nbsp;|&nbsp; Noturna = (sal÷220)×0,35×h
+        <strong>Fórmulas:</strong> HE 50% = (sal÷220)×1,5×h &nbsp;|&nbsp; HE 100% = (sal÷220)×2,0×h &nbsp;|&nbsp; Noturna = (sal÷220)×0,35×h
       </div>
       <button class="btn btn-p" onclick="simular()">✓ Validar e registrar autorização</button>
       <div class="alert aok" id="sim-ok"></div>
@@ -538,8 +538,8 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
     <div class="section">
       <div class="sh"><span class="st">Fórmulas de cálculo</span></div>
       <div style="padding:1.1rem;">
-        <div class="fbox"><div style="font-size:13px;font-weight:600;color:#1565C0;margin-bottom:6px;">Hora Extra 50%</div><code>valor = (salário ÷ 220) × 0,5 × horas</code></div>
-        <div class="fbox"><div style="font-size:13px;font-weight:600;color:#1565C0;margin-bottom:6px;">Hora Extra 100%</div><code>valor = (salário ÷ 220) × 1,0 × horas</code></div>
+        <div class="fbox"><div style="font-size:13px;font-weight:600;color:#1565C0;margin-bottom:6px;">Hora Extra 50%</div><code>valor = (salário ÷ 220) × 1,5 × horas</code></div>
+        <div class="fbox"><div style="font-size:13px;font-weight:600;color:#1565C0;margin-bottom:6px;">Hora Extra 100%</div><code>valor = (salário ÷ 220) × 2,0 × horas</code></div>
         <div class="fbox"><div style="font-size:13px;font-weight:600;color:#1565C0;margin-bottom:6px;">Hora Noturna</div><code>valor = (salário ÷ 220) × 0,35 × horas</code></div>
       </div>
     </div>
@@ -877,7 +877,7 @@ function hms(s){
 }
 function calcCusto(sal,h50,h100,hNot){
   var vh=sal/220;
-  return (vh*0.5*h50)+(vh*1.0*h100)+(vh*0.35*hNot);
+  return (vh*1.5*h50)+(vh*2.0*h100)+(vh*0.35*hNot);
 }
 function brl(v){return v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
 function brl2(v){return 'R$ '+v.toFixed(2).replace('.',',');}
@@ -1253,8 +1253,8 @@ function renderLancar(){
     var dsr=l?l.dsr:'0:00';
     var vh=c.sal/220;
     var h50d=hms(h50), h100d=hms(h100), hNotd=hms(hNot);
-    var v50 =vh*0.5*h50d;
-    var v100=vh*1.0*h100d;
+    var v50 =vh*1.5*h50d;
+    var v100=vh*2.0*h100d;
     var vNot=vh*0.35*hNotd;
     var custo=v50+v100+vNot;
     // Calcular DSR
@@ -1345,8 +1345,8 @@ function atualizarCustoCard(colId){
   var hNot=hms(document.getElementById('li-hnot-'+colId).value);
   var hTotal=h50+h100+hNot;
   var vh=c.sal/220;
-  var v50 =vh*0.5*h50;
-  var v100=vh*1.0*h100;
+  var v50 =vh*1.5*h50;
+  var v100=vh*2.0*h100;
   var vNot=vh*0.35*hNot;
   var custo=v50+v100+vNot;
 
@@ -1400,7 +1400,7 @@ function atualizarCostoCard_DSR(colId,du,dom){
   var h100=hms(document.getElementById('li-h100-'+colId).value);
   var hNot=hms(document.getElementById('li-hnot-'+colId).value);
   var vh=c.sal/220;
-  var v50=vh*0.5*h50, v100=vh*1.0*h100, vNot=vh*0.35*hNot;
+  var v50=vh*1.5*h50, v100=vh*2.0*h100, vNot=vh*0.35*hNot;
   var custo=v50+v100+vNot;
   var dsrDec=calcDSR(h50,h100,hNot,du,dom);
   var valorDsr=dsrDec>0?vh*dsrDec:0;
@@ -1486,8 +1486,8 @@ function renderColaboradores(){
       '<td style="color:#546E7A;font-size:12px;">'+c.cargo+'</td>'+
       '<td>'+statusBadge+'</td>'+
       '<td class="ta-r" style="font-weight:600;color:'+nomeCor+';">'+brl(c.sal)+'</td>'+
-      '<td class="ta-r" style="color:'+nomeCor+';">'+brl2(vh*0.5)+'</td>'+
-      '<td class="ta-r" style="color:'+nomeCor+';">'+brl2(vh*1.0)+'</td>'+
+      '<td class="ta-r" style="color:'+nomeCor+';">'+brl2(vh*1.5)+'</td>'+
+      '<td class="ta-r" style="color:'+nomeCor+';">'+brl2(vh*2.0)+'</td>'+
       '<td class="ta-r" style="color:'+nomeCor+';">'+brl2(vh*0.35)+'</td>'+
       '<td class="ta-c"><span style="display:flex;gap:5px;justify-content:center;">'+
         '<button class="btn-sm btn-e" onclick="abrirModalColaborador('+c.id+')">Editar</button>'+
@@ -1724,7 +1724,7 @@ function calcularEscala(){
   var res=document.getElementById('escala-resultado');
   var sal=parseFloat(document.getElementById('sim-sal').value)||0;
   var vh=sal/220;
-  var custo=sal>0?((vh*0.5*h50)+(vh*1.0*h100)):0;
+  var custo=sal>0?((vh*1.5*h50)+(vh*2.0*h100)):0;
 
   document.getElementById('esc-turno').textContent=minToHHMM(turnoMin);
   document.getElementById('esc-h50').textContent=minToHHMM(extra50Min);
@@ -1788,7 +1788,7 @@ function simular(){
   // Formatar data para exibição
   var dataFmt=dataEscala?dataEscala.split('-').reverse().join('/'):'';
   var vh=sal/220;
-  var v50=vh*0.5*h50, v100=vh*1.0*h100, vNot=vh*0.35*hNot;
+  var v50=vh*1.5*h50, v100=vh*2.0*h100, vNot=vh*0.35*hNot;
   var custo=v50+v100+vNot;
   var p=getPeriodo(periodoAtivo);
   var total=p?getTotalPeriodo(p):0;
@@ -2200,7 +2200,7 @@ function autorizarTurno(){
       periodo:p?p.nome:'—', data:dataReg,
       dataEscala:dataFmt, entrada:l.entrada, saidaPrev:l.saidaPrev, saidaAut:l.saidaAut,
       h50:l.h50, h100:l.h100, hNot:0,
-      v50:vh*0.5*hms(l.h50), v100:vh*1.0*hms(l.h100), vNot:0,
+      v50:vh*1.5*hms(l.h50), v100:vh*2.0*hms(l.h100), vNot:0,
       custo:l.custo, just:'[TURNO '+dataFmt+'] '+motivo,
       status:ok?'autorizado':'bloqueado', turno:true
     });
@@ -2361,8 +2361,8 @@ function renderStatusColaboradores(){
     var hTot=l?(hms(l.h50)+hms(l.h100)+hms(l.hNot)):0;
     var vh=c.sal/220;
     // Custo de 1h extra 50% deste colaborador
-    var custoH50=vh*0.5;
-    var custoH100=vh*1.0;
+    var custoH50=vh*1.5;
+    var custoH100=vh*2.0;
     // Quantas horas a 50% cabem no saldo
     var hDisp50=saldoRestante>0?Math.floor(saldoRestante/custoH50*10)/10:0;
     var hDisp100=saldoRestante>0?Math.floor(saldoRestante/custoH100*10)/10:0;
@@ -2438,8 +2438,8 @@ function rodarIA(){
     var hNotd=l?hms(l.hNot):0;
     var hTot=h50d+h100d+hNotd;
     var vh=c.sal/220;
-    var custoH50=vh*0.5;
-    var custoH100=vh*1.0;
+    var custoH50=vh*1.5;
+    var custoH100=vh*2.0;
     var pctMeta=meta>0?(custo/meta*100):0;
     var hDisp50=saldo>0?Math.floor(saldo/custoH50*10)/10:0;
     var hDisp100=saldo>0?Math.floor(saldo/custoH100*10)/10:0;
