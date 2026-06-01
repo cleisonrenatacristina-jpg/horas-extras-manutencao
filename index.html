@@ -876,7 +876,9 @@ function hms(s){
   return horas+(minutos/60);
 }
 function calcCusto(sal,h50,h100,hNot){
-  var vh=sal/220;
+  // Adicional de periculosidade 30% sobre o salário base (CLT)
+  var salPeric=sal*1.30;
+  var vh=salPeric/220;
   return (vh*1.5*h50)+(vh*2.0*h100)+(vh*0.35*hNot);
 }
 function brl(v){return v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
@@ -1251,7 +1253,7 @@ function renderLancar(){
     var h50=l?l.h50:'0:00', h100=l?l.h100:'0:00', hNot=l?l.hNot:'0:00', hTot=l?l.hTot:'0:00';
     var just=l?l.just:'';
     var dsr=l?l.dsr:'0:00';
-    var vh=c.sal/220;
+    var vh=(c.sal*1.30)/220; // VH com adicional de periculosidade 30%
     var h50d=hms(h50), h100d=hms(h100), hNotd=hms(hNot);
     var v50 =vh*1.5*h50d;
     var v100=vh*2.0*h100d;
@@ -1344,7 +1346,7 @@ function atualizarCustoCard(colId){
   var h100=hms(document.getElementById('li-h100-'+colId).value);
   var hNot=hms(document.getElementById('li-hnot-'+colId).value);
   var hTotal=h50+h100+hNot;
-  var vh=c.sal/220;
+  var vh=(c.sal*1.30)/220; // VH com adicional de periculosidade 30%
   var v50 =vh*1.5*h50;
   var v100=vh*2.0*h100;
   var vNot=vh*0.35*hNot;
@@ -1399,7 +1401,7 @@ function atualizarCostoCard_DSR(colId,du,dom){
   var h50 =hms(elH50.value);
   var h100=hms(document.getElementById('li-h100-'+colId).value);
   var hNot=hms(document.getElementById('li-hnot-'+colId).value);
-  var vh=c.sal/220;
+  var vh=(c.sal*1.30)/220; // VH com adicional de periculosidade 30%
   var v50=vh*1.5*h50, v100=vh*2.0*h100, vNot=vh*0.35*hNot;
   var custo=v50+v100+vNot;
   var dsrDec=calcDSR(h50,h100,hNot,du,dom);
@@ -1474,7 +1476,7 @@ function renderColaboradores(){
   vazia.style.display='none';
   var h='';
   lista.forEach(function(c){
-    var vh=c.sal/220;
+    var vh=(c.sal*1.30)/220; // VH com adicional de periculosidade 30%
     var ativo=c.ativo!==false;
     var rowBg=ativo?'':'#FAFBFC';
     var nomeCor=ativo?'#1a1a2e':'#90A4AE';
@@ -1723,7 +1725,7 @@ function calcularEscala(){
 
   var res=document.getElementById('escala-resultado');
   var sal=parseFloat(document.getElementById('sim-sal').value)||0;
-  var vh=sal/220;
+  var vh=(sal*1.30)/220; // com periculosidade 30%
   var custo=sal>0?((vh*1.5*h50)+(vh*2.0*h100)):0;
 
   document.getElementById('esc-turno').textContent=minToHHMM(turnoMin);
@@ -1787,7 +1789,7 @@ function simular(){
   var saidaAut=document.getElementById('sim-saida-aut').value||'';
   // Formatar data para exibição
   var dataFmt=dataEscala?dataEscala.split('-').reverse().join('/'):'';
-  var vh=sal/220;
+  var vh=(sal*1.30)/220; // com periculosidade 30%
   var v50=vh*1.5*h50, v100=vh*2.0*h100, vNot=vh*0.35*hNot;
   var custo=v50+v100+vNot;
   var p=getPeriodo(periodoAtivo);
@@ -2359,7 +2361,7 @@ function renderStatusColaboradores(){
     var l=getLanc(p,c.id);
     var custo=getCustoCol(p,c);
     var hTot=l?(hms(l.h50)+hms(l.h100)+hms(l.hNot)):0;
-    var vh=c.sal/220;
+    var vh=(c.sal*1.30)/220; // VH com adicional de periculosidade 30%
     // Custo de 1h extra 50% deste colaborador
     var custoH50=vh*1.5;
     var custoH100=vh*2.0;
@@ -2437,7 +2439,7 @@ function rodarIA(){
     var h100d=l?hms(l.h100):0;
     var hNotd=l?hms(l.hNot):0;
     var hTot=h50d+h100d+hNotd;
-    var vh=c.sal/220;
+    var vh=(c.sal*1.30)/220; // VH com adicional de periculosidade 30%
     var custoH50=vh*1.5;
     var custoH100=vh*2.0;
     var pctMeta=meta>0?(custo/meta*100):0;
