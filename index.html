@@ -542,9 +542,28 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
     <div class="section">
       <div class="sh"><span class="st">Fórmulas de cálculo</span></div>
       <div style="padding:1.1rem;">
-        <div class="fbox"><div style="font-size:13px;font-weight:600;color:#1565C0;margin-bottom:6px;">Hora Extra 50%</div><code>valor = (salário ÷ 220) × 1,5 × horas</code></div>
-        <div class="fbox"><div style="font-size:13px;font-weight:600;color:#1565C0;margin-bottom:6px;">Hora Extra 100%</div><code>valor = (salário ÷ 220) × 2,0 × horas</code></div>
-        <div class="fbox"><div style="font-size:13px;font-weight:600;color:#1565C0;margin-bottom:6px;">Hora Noturna</div><code>valor = (salário ÷ 220) × 0,35 × horas</code></div>
+        <div style="background:#E3F2FD;border-radius:8px;padding:8px 12px;font-size:12px;color:#1565C0;margin-bottom:12px;">
+          📐 valor = (salário ÷ divisor) × multiplicador × horas
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px;">
+          <div>
+            <label class="lbl">Divisor (horas/mês)</label>
+            <input type="number" id="cfg-f-divisor" step="1"/>
+          </div>
+          <div>
+            <label class="lbl">Multiplicador 50%</label>
+            <input type="number" id="cfg-f-mult50" step="0.05"/>
+          </div>
+          <div>
+            <label class="lbl">Multiplicador 100%</label>
+            <input type="number" id="cfg-f-mult100" step="0.05"/>
+          </div>
+          <div>
+            <label class="lbl">Multiplicador noturno</label>
+            <input type="number" id="cfg-f-multnot" step="0.05"/>
+          </div>
+        </div>
+        <button class="btn btn-p" style="width:100%;" onclick="salvarFormulas(this)">Salvar fórmulas</button>
       </div>
     </div>
   </div>
@@ -711,6 +730,7 @@ function salvarLS(){
 
   var dados = {
     meta:        META_GLOBAL,
+    formula:     FORMULA,
     colaboradores: colaboradores,
     periodos:    periodos,
     historico:   historico,
@@ -771,6 +791,7 @@ function carregarLS(){
     if(res.ok && res.data){
       var d = res.data;
       if(d.meta        !== undefined) META_GLOBAL   = d.meta;
+      if(d.formula)                   FORMULA       = d.formula;
       if(d.colaboradores)             colaboradores = d.colaboradores;
       if(d.periodos)                  periodos      = d.periodos;
       if(d.historico)                 historico     = d.historico;
@@ -792,6 +813,7 @@ function carregarLS(){
       if(bk){
         var d = JSON.parse(bk);
         if(d.meta)          META_GLOBAL    = d.meta;
+        if(d.formula)       FORMULA        = d.formula;
         if(d.colaboradores) colaboradores  = d.colaboradores;
         if(d.periodos)      periodos       = d.periodos;
         if(d.historico)     historico      = d.historico;
@@ -809,6 +831,7 @@ function carregarLS(){
 function resetarDados(){
   if(!confirm('Atenção! Isso apaga TODOS os dados e volta ao estado inicial.\nTem certeza?')) return;
   META_GLOBAL    = META_BASE;
+  FORMULA        = JSON.parse(JSON.stringify(FORMULA_BASE));
   colaboradores  = JSON.parse(JSON.stringify(COLABORADORES_BASE));
   periodos       = JSON.parse(JSON.stringify(PERIODOS_BASE));
   historico      = [];
@@ -820,6 +843,8 @@ function resetarDados(){
 }
 
 // ===== VARIÁVEIS GLOBAIS =====
+var FORMULA_BASE  = { divisor:220, mult50:1.5, mult100:2.0, multNot:0.35 };
+var FORMULA       = JSON.parse(JSON.stringify(FORMULA_BASE));
 var META_GLOBAL   = META_BASE;
 var nextColId     = NEXT_COL_BASE;
 var nextPeriodoId = NEXT_PERIODO_BASE;
@@ -880,9 +905,9 @@ function hms(s){
   return horas+(minutos/60);
 }
 function calcCusto(sal,h50,h100,hNot){
-  // Salários já incluem periculosidade 30% — divide direto por 220
-  var vh=sal/220;
-  return (vh*1.5*h50)+(vh*2.0*h100)+(vh*0.35*hNot);
+  // Salários já incluem periculosidade 30%
+  var vh=sal/FORMULA.divisor;
+  return (vh*FORMULA.mult50*h50)+(vh*FORMULA.mult100*h100)+(vh*FORMULA.multNot*hNot);
 }
 function brl(v){return v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
 function brl2(v){return 'R$ '+v.toFixed(2).replace('.',',');}
@@ -1678,6 +1703,14 @@ function renderConfig(){
   if(el) el.innerHTML=h||'<div class="empty">Nenhum período.</div>';
   var cfgMeta=document.getElementById('cfg-meta');
   if(cfgMeta) cfgMeta.value=META_GLOBAL;
+  var fDiv=document.getElementById('cfg-f-divisor');
+  var f50=document.getElementById('cfg-f-mult50');
+  var f100=document.getElementById('cfg-f-mult100');
+  var fNot=document.getElementById('cfg-f-multnot');
+  if(fDiv) fDiv.value=FORMULA.divisor;
+  if(f50)  f50.value=FORMULA.mult50;
+  if(f100) f100.value=FORMULA.mult100;
+  if(fNot) fNot.value=FORMULA.multNot;
 }
 
 function salvarMeta(){
@@ -1685,6 +1718,19 @@ function salvarMeta(){
   if(v<=0){alert('Informe um valor válido.');return;}
   META_GLOBAL=v; render();
   var btn=document.querySelector('#tab-config .btn-p');
+  var orig=btn.textContent; btn.textContent='✓ Salvo!';
+  setTimeout(function(){btn.textContent=orig;},2000);
+}
+
+function salvarFormulas(){
+  var div=parseFloat(document.getElementById('cfg-f-divisor').value)||0;
+  var m50=parseFloat(document.getElementById('cfg-f-mult50').value);
+  var m100=parseFloat(document.getElementById('cfg-f-mult100').value);
+  var mNot=parseFloat(document.getElementById('cfg-f-multnot').value);
+  if(div<=0||isNaN(m50)||isNaN(m100)||isNaN(mNot)){alert('Preencha todos os campos com valores válidos.');return;}
+  FORMULA={divisor:div,mult50:m50,mult100:m100,multNot:mNot};
+  render();
+  var btn=event.target;
   var orig=btn.textContent; btn.textContent='✓ Salvo!';
   setTimeout(function(){btn.textContent=orig;},2000);
 }
@@ -2725,6 +2771,7 @@ function exportarDados(){
     versao:'1.0',
     data:new Date().toISOString(),
     META_GLOBAL:META_GLOBAL,
+    FORMULA:FORMULA,
     colaboradores:colaboradores,
     periodos:periodos,
     historico:historico,
@@ -2756,6 +2803,7 @@ function importarDados(input){
       }
       if(!confirm('Importar dados do arquivo "'+file.name+'"?\nOs dados atuais serão substituídos.')) return;
       META_GLOBAL=dados.META_GLOBAL||10000;
+      FORMULA=dados.FORMULA||JSON.parse(JSON.stringify(FORMULA_BASE));
       colaboradores=dados.colaboradores;
       periodos=dados.periodos;
       historico=dados.historico||[];
