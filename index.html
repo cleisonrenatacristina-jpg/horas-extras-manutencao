@@ -2602,7 +2602,7 @@ function autorizarTurno(){
   if(!turnoLinhas.length){ alert('Adicione ao menos um colaborador.'); return; }
   var motivo=document.getElementById('turno-motivo').value.trim();
   var data=document.getElementById('turno-data').value;
-  if(!motivo){ document.getElementById('turno-motivo').style.borderColor='#C62828'; document.getElementById('turno-motivo').focus(); return; }
+  if(!motivo){ document.getElementById('turno-motivo').style.borderColor='#C62828'; document.getElementById('turno-motivo').focus(); alert('Informe o motivo/justificativa do turno antes de autorizar.'); return; }
   if(!data){ alert('Informe a data do turno.'); return; }
   document.getElementById('turno-motivo').style.borderColor='#CFD8DC';
   var dataFmt=data.split('-').reverse().join('/');
