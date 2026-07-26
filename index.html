@@ -724,9 +724,10 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
     <div id="oo-perguntas-wrap" class="fg fg1"></div>
 
     <div style="font-size:12px;font-weight:700;color:#1565C0;text-transform:uppercase;letter-spacing:.04em;margin:1rem 0 8px;">Avaliação da gestão</div>
-    <div class="fg fg2" style="margin-bottom:1rem;">
+    <div class="fg fg3" style="margin-bottom:1rem;">
       <div><label class="lbl">Nota para a gestão da manutenção (0 a 10)</label><input type="number" id="oo-nota-gestao" min="0" max="10" step="1"/></div>
       <div><label class="lbl">Por que dessa nota?</label><input id="oo-motivo-nota-gestao" placeholder="Motivo da nota"/></div>
+      <div><label class="lbl">Retenção — chance de continuar na LivUp (0 a 10)</label><input type="number" id="oo-nota-retencao" min="0" max="10" step="1"/></div>
     </div>
 
     <div style="font-size:12px;font-weight:700;color:#1565C0;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">Confiança em cada gestor <span style="font-weight:400;color:#546E7A;text-transform:none;">— conhecimento técnico e suporte, de 0 a 10</span></div>
@@ -953,15 +954,22 @@ var periodos      = JSON.parse(JSON.stringify(PERIODOS_BASE));
 // ===== 1x1 / AVALIAÇÕES — dados =====
 var GESTORES = ["Cleison","Hudin","Ezequias","Vinicius","Joilson"];
 var OO_PERGUNTAS = [
-  {key:'diaDia',       label:'Como está seu dia a dia na manutenção?'},
-  {key:'convivencia',  label:'Como está sua convivência com os parceiros de profissão?'},
-  {key:'expectativa',  label:'Qual sua expectativa aqui dentro da Liv Up?'},
-  {key:'ondeChegar',   label:'Onde você espera chegar aqui na Liv Up nos próximos anos?'},
-  {key:'incomoda',     label:'Tem alguma coisa que te incomoda aqui no trabalho?'},
-  {key:'dificuldades', label:'Quais suas dificuldades e como nós, gestores, podemos te ajudar?'},
-  {key:'objetivos',    label:'Quais são seus objetivos aqui dentro e como podemos te ajudar a chegar lá?'},
-  {key:'pontoForte',   label:'Qual seu ponto forte dentro do seu profissional?'},
-  {key:'pontoFraco',   label:'Qual seu ponto fraco e o que podemos trabalhar nesse ponto?'}
+  {key:'diaDia',              label:'Como está seu dia a dia na manutenção?'},
+  {key:'convivencia',         label:'Como está sua convivência com os parceiros de profissão?'},
+  {key:'seguranca',           label:'Você se sente seguro pra fazer seu trabalho? Falta algum EPI, ferramenta ou treinamento?'},
+  {key:'ferramentas',         label:'As ferramentas e equipamentos disponíveis são suficientes pro seu trabalho hoje?'},
+  {key:'cargaTrabalho',       label:'Como está sua carga de trabalho — dá pra fazer tudo com qualidade no tempo que você tem?'},
+  {key:'comunicacaoLideranca',label:'A comunicação entre você e a liderança está clara? Falta alguma informação pra você trabalhar melhor?'},
+  {key:'expectativa',         label:'Qual sua expectativa aqui dentro da Liv Up?'},
+  {key:'ondeChegar',          label:'Onde você espera chegar aqui na Liv Up nos próximos anos?'},
+  {key:'incomoda',            label:'Tem alguma coisa que te incomoda aqui no trabalho?'},
+  {key:'dificuldades',        label:'Quais suas dificuldades e como nós, gestores, podemos te ajudar?'},
+  {key:'objetivos',           label:'Quais são seus objetivos aqui dentro e como podemos te ajudar a chegar lá?'},
+  {key:'treinamentoDesejado', label:'Que treinamento ou capacitação você gostaria de receber?'},
+  {key:'reconhecimento',      label:'Você sente que seu trabalho é reconhecido pela empresa?'},
+  {key:'pontoForte',          label:'Qual seu ponto forte dentro do seu profissional?'},
+  {key:'pontoFraco',          label:'Qual seu ponto fraco e o que podemos trabalhar nesse ponto?'},
+  {key:'sugestaoMelhoria',    label:'Você tem alguma sugestão de melhoria pra manutenção ou pra empresa?'}
 ];
 var oneOnOnes      = [];
 var nextOneOnOneId = 1;
@@ -1797,6 +1805,7 @@ function abrirModalOO(colabId){
 
   document.getElementById('oo-nota-gestao').value='';
   document.getElementById('oo-motivo-nota-gestao').value='';
+  document.getElementById('oo-nota-retencao').value='';
 
   var wrapG=document.getElementById('oo-gestores-wrap');
   wrapG.innerHTML=GESTORES.map(function(g){
@@ -1827,6 +1836,9 @@ function salvarOO(){
   var notaGestaoRaw=document.getElementById('oo-nota-gestao').value;
   var notaGestao=notaGestaoRaw!==''?Math.max(0,Math.min(10,parseFloat(notaGestaoRaw))):null;
 
+  var notaRetencaoRaw=document.getElementById('oo-nota-retencao').value;
+  var notaRetencao=notaRetencaoRaw!==''?Math.max(0,Math.min(10,parseFloat(notaRetencaoRaw))):null;
+
   var obj={
     id:nextOneOnOneId++,
     colaboradorId:colabId,
@@ -1836,6 +1848,7 @@ function salvarOO(){
     respostas:respostas,
     notaGestao:notaGestao,
     motivoNotaGestao:document.getElementById('oo-motivo-nota-gestao').value.trim(),
+    notaRetencao:notaRetencao,
     notasGestores:notasGestores,
     obs:document.getElementById('oo-obs').value.trim()
   };
@@ -1873,7 +1886,7 @@ function abrirHistoricoOO(colabId){
         '<div style="font-weight:600;">'+mesLabelOO(o.mes)+' <span style="font-weight:400;color:#546E7A;font-size:12px;">· '+o.data.split('-').reverse().join('/')+' · entrevistado por '+o.gestorResponsavel+'</span></div>'+
         '<button class="btn-sm btn-d" onclick="excluirOO('+o.id+')">Excluir</button>'+
       '</div>'+
-      '<div style="font-size:12px;color:#546E7A;margin-bottom:6px;"><strong style="color:#1a1a2e;">Nota para a gestão:</strong> '+(o.notaGestao!==null&&o.notaGestao!==undefined?o.notaGestao:'—')+(o.motivoNotaGestao?' — '+o.motivoNotaGestao:'')+'</div>'+
+      '<div style="font-size:12px;color:#546E7A;margin-bottom:6px;"><strong style="color:#1a1a2e;">Nota para a gestão:</strong> '+(o.notaGestao!==null&&o.notaGestao!==undefined?o.notaGestao:'—')+(o.motivoNotaGestao?' — '+o.motivoNotaGestao:'')+' &nbsp;|&nbsp; <strong style="color:#1a1a2e;">Retenção:</strong> '+(o.notaRetencao!==null&&o.notaRetencao!==undefined?o.notaRetencao:'—')+'</div>'+
       '<div style="font-size:12px;color:#546E7A;margin-bottom:6px;">'+notasG+'</div>'+
       OO_PERGUNTAS.filter(function(p){return o.respostas&&o.respostas[p.key];}).map(function(p){
         return '<div style="font-size:12px;margin-top:4px;"><strong>'+p.label+'</strong><br>'+o.respostas[p.key]+'</div>';
