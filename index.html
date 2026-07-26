@@ -314,6 +314,7 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
         <button class="btn-sm btn-e" id="oo-view-lista" onclick="setViewOO('lista')" style="font-weight:700;background:#E3F2FD;color:#1565C0;">Colaboradores</button>
         <button class="btn-sm" id="oo-view-painel" onclick="setViewOO('painel')" style="background:#ECEFF1;color:#546E7A;">Painel de Gestores</button>
         <button class="btn-sm" id="oo-view-desempenho" onclick="setViewOO('desempenho')" style="background:#ECEFF1;color:#546E7A;">Desempenho</button>
+        <button class="btn-sm" id="oo-view-agente" onclick="setViewOO('agente')" style="background:#ECEFF1;color:#546E7A;">🤖 Agente</button>
       </div>
     </div>
 
@@ -352,6 +353,16 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
           <span style="font-size:12px;color:#546E7A;">média das notas de desempenho de cada 1x1, em %</span>
         </div>
         <div style="overflow-x:auto;" id="oo-desempenho-tabela"></div>
+      </div>
+    </div>
+
+    <div id="oo-sub-agente" style="display:none;">
+      <div class="section">
+        <div class="sh">
+          <span class="st">🤖 Agente — resumo, sugestões e evolução</span>
+          <span style="font-size:12px;color:#546E7A;">gerado a partir de todos os 1x1 registrados</span>
+        </div>
+        <div style="padding:1.1rem;" id="oo-agente-resultado"></div>
       </div>
     </div>
   </div>
@@ -1028,6 +1039,27 @@ function getNotasAplicaveis(c){
   var cat=getCategoriaLabel(c.cargo);
   return OO_NOTAS_GERAL.concat(OO_NOTAS_CARGO[cat]||[]);
 }
+// Sugestão padrão de desenvolvimento pra cada competência (usada pelo Agente)
+var OO_SUGESTOES = {
+  comportamento:        'Reforçar alinhamento de conduta com feedback direto e frequente.',
+  resolucaoProblemas:   'Envolver em diagnósticos mais complexos junto com um técnico sênior, aumentando a dificuldade aos poucos.',
+  autonomia:            'Delegar OS simples de ponta a ponta, reduzindo a supervisão aos poucos, com checkpoints.',
+  trabalhoEquipe:       'Colocar em tarefas/turnos junto com colegas de bom relacionamento pra melhorar a integração.',
+  organizacao:          'Padronizar um checklist de início/fim de turno e cobrar o registro imediato.',
+  lideranca:            'Dar pequenas responsabilidades de coordenação (ex: liderar um turno) pra testar e desenvolver.',
+  pontualidade:         'Alinhar a expectativa de horário claramente e monitorar por 30 dias.',
+  prazos:               'Revisar a carga de ordens de serviço e priorizar junto com o colaborador.',
+  apontamento:          'Fazer um treinamento rápido no sistema de apontamento e acompanhar nas próximas 2 semanas.',
+  segurancaTrabalho:    'Reforçar o treinamento de segurança e verificar se o EPI está disponível.',
+  proatividade:         'Estimular rondas preventivas e reconhecer quando ele identificar um problema antes de quebrar.',
+  eletrica:             'Colocar em manutenções elétricas mais complexas acompanhado por um sênior.',
+  mecanica:             'Rodar por manutenções mecânicas com apoio técnico até ganhar confiança.',
+  diagnosticoEletrico:  'Treinar leitura de diagramas elétricos com prática guiada de diagnóstico.',
+  refrigeracao:         'Acompanhar um técnico sênior de refrigeração em serviços mais críticos.',
+  gasesEficiencia:      'Reforçar boas práticas de manuseio de gás e eficiência energética em um treinamento específico.',
+  predial:              'Envolver em serviços prediais mais variados pra ganhar repertório.',
+  acabamentoNormas:     'Revisar o padrão de acabamento junto com ele e reforçar as normas NR-18/NR-35.'
+};
 
 // Utilitário global de formatação de horas
 function fmtH(h){
@@ -1810,13 +1842,15 @@ function setViewOO(v){
   document.getElementById('oo-sub-lista').style.display=v==='lista'?'block':'none';
   document.getElementById('oo-sub-painel').style.display=v==='painel'?'block':'none';
   document.getElementById('oo-sub-desempenho').style.display=v==='desempenho'?'block':'none';
-  ['lista','painel','desempenho'].forEach(function(vv){
+  document.getElementById('oo-sub-agente').style.display=v==='agente'?'block':'none';
+  ['lista','painel','desempenho','agente'].forEach(function(vv){
     var b=document.getElementById('oo-view-'+vv);
     var ativo=v===vv;
     b.style.background=ativo?'#E3F2FD':'#ECEFF1'; b.style.color=ativo?'#1565C0':'#546E7A'; b.style.fontWeight=ativo?'700':'400';
   });
   if(v==='painel') renderOOPainel();
   else if(v==='desempenho') renderOODesempenho();
+  else if(v==='agente') renderAgenteOO();
   else renderOOLista();
 }
 
@@ -2123,6 +2157,157 @@ function renderOODesempenho(){
     tbody+='</tr>';
   });
   el.innerHTML=tbody?('<table><thead>'+thead+'</thead><tbody>'+tbody+'</tbody></table>'):'<div class="empty" style="padding:1.1rem;">Ainda não há avaliações de desempenho suficientes.</div>';
+}
+
+// ----- Agente: resumo, sugestões e evolução (colaboradores + gestores) -----
+function renderAgenteOO(){
+  var el=document.getElementById('oo-agente-resultado');
+  var linhas=[];
+
+  var totalRegistros=oneOnOnes.length;
+  var colabsComRegistro=Object.keys(oneOnOnes.reduce(function(acc,o){acc[o.colaboradorId]=true;return acc;},{})).length;
+  var colabsAtivos=colaboradores.filter(function(c){return c.ativo!==false;});
+  var mesAtual=mesAtualStr();
+
+  linhas.push('<div style="background:#E3F2FD;border-radius:8px;padding:10px 14px;margin-bottom:16px;color:#1565C0;">');
+  linhas.push('<strong>📋 RESUMO GERAL:</strong> '+totalRegistros+' 1x1 registrado(s) no total, cobrindo '+colabsComRegistro+' de '+colabsAtivos.length+' colaborador(es) ativo(s). Mês de referência atual: '+mesLabelOO(mesAtual)+'.');
+  linhas.push('</div>');
+
+  if(!totalRegistros){
+    linhas.push('<div class="empty">Ainda não há 1x1 registrados. Faça as entrevistas na aba "Colaboradores" pra o Agente gerar a análise.</div>');
+    el.innerHTML=linhas.join('');
+    return;
+  }
+
+  // Pontos levantados pelos colaboradores (último 1x1 de cada um)
+  var pontosAtencao=[];
+  var labelCampo={incomoda:'O que incomoda',dificuldades:'Dificuldades',sugestaoMelhoria:'Sugestão de melhoria'};
+  colabsAtivos.forEach(function(c){
+    var u=getUltimaOO(c.id);
+    if(!u||!u.respostas) return;
+    Object.keys(labelCampo).forEach(function(k){
+      var txt=u.respostas[k];
+      if(txt&&txt.trim()) pontosAtencao.push({nome:c.nome,mes:u.mes,campo:k,texto:txt});
+    });
+  });
+  if(pontosAtencao.length){
+    linhas.push('<div style="margin-bottom:18px;">');
+    linhas.push('<strong>⚠️ PONTOS LEVANTADOS PELOS COLABORADORES (último 1x1 de cada um):</strong>');
+    pontosAtencao.forEach(function(pa){
+      linhas.push('<div style="background:#FFF3E0;border-left:3px solid #E65100;border-radius:6px;padding:8px 12px;margin-top:8px;font-size:13px;">'+
+        '<strong>'+pa.nome+'</strong> <span style="color:#546E7A;font-size:11px;">('+mesLabelOO(pa.mes)+' · '+labelCampo[pa.campo]+')</span><br>'+pa.texto+
+      '</div>');
+    });
+    linhas.push('</div>');
+  }
+
+  // Por colaborador: ponto forte/fraco, evolução e sugestão
+  linhas.push('<div style="margin-bottom:18px;">');
+  linhas.push('<strong>👤 EVOLUÇÃO E SUGESTÕES POR COLABORADOR:</strong>');
+  colabsAtivos.forEach(function(c){
+    var lista=getOOsColab(c.id);
+    if(!lista.length) return;
+    var ultimo=lista[lista.length-1];
+    var anterior=lista.length>1?lista[lista.length-2]:null;
+    var notas=ultimo.notasDesempenho||{};
+    var chaves=Object.keys(notas).filter(function(k){return notas[k]&&notas[k].nota!==null&&notas[k].nota!==undefined;});
+    var forte=null, fraco=null;
+    chaves.forEach(function(k){
+      var n=notas[k].nota;
+      if(!forte||n>notas[forte].nota) forte=k;
+      if(!fraco||n<notas[fraco].nota) fraco=k;
+    });
+    var mediaAtual=calcMediaDesempenho(ultimo);
+    var mediaAnterior=anterior?calcMediaDesempenho(anterior):null;
+    var evoTxt='';
+    if(mediaAtual!==null&&mediaAnterior!==null&&mediaAnterior>0){
+      var evo=((mediaAtual-mediaAnterior)/mediaAnterior)*100;
+      var cor=evo>=0?'#2E7D32':'#C62828';
+      evoTxt=' <span style="color:'+cor+';font-weight:600;">('+(evo>=0?'+':'')+evo.toFixed(1)+'% desde o 1x1 anterior)</span>';
+    }
+    linhas.push('<div style="border:1px solid #CFD8DC;border-radius:8px;padding:12px 14px;margin-top:10px;">');
+    linhas.push('<div style="font-weight:700;margin-bottom:4px;">'+c.nome+' <span style="font-weight:400;color:#546E7A;font-size:12px;">'+c.cargo+'</span></div>');
+    if(mediaAtual!==null){
+      linhas.push('<div style="font-size:13px;margin-bottom:6px;">Média de desempenho no último 1x1 ('+mesLabelOO(ultimo.mes)+'): <strong>'+mediaAtual.toFixed(1)+'/10</strong>'+evoTxt+'</div>');
+    }
+    if(forte){
+      linhas.push('<div style="font-size:13px;color:#2E7D32;margin-bottom:3px;">✅ <strong>Ponto forte:</strong> '+(OO_NOTAS_LABELS[forte]||forte)+' ('+notas[forte].nota+'/10)'+(notas[forte].motivo?' — '+notas[forte].motivo:'')+'</div>');
+    }
+    if(fraco){
+      linhas.push('<div style="font-size:13px;color:#C62828;margin-bottom:3px;">🔻 <strong>Ponto de atenção:</strong> '+(OO_NOTAS_LABELS[fraco]||fraco)+' ('+notas[fraco].nota+'/10)'+(notas[fraco].motivo?' — '+notas[fraco].motivo:'')+'</div>');
+      linhas.push('<div style="font-size:13px;color:#1565C0;">💡 <strong>Como ajudar a evoluir:</strong> '+(OO_SUGESTOES[fraco]||'Conversar diretamente sobre esse ponto no próximo 1x1.')+'</div>');
+    }
+    linhas.push('</div>');
+  });
+  linhas.push('</div>');
+
+  // Nossa evolução como gestores
+  var semMap={};
+  oneOnOnes.forEach(function(o){
+    if(!o.mes) return;
+    var s=semestreDe(o.mes);
+    if(!semMap[s.chave]) semMap[s.chave]={label:s.label,ano:s.ano,sem:s.sem,gestores:{}};
+    GESTORES.forEach(function(g){
+      var v=o.notasGestores?o.notasGestores[g]:null;
+      if(v===null||v===undefined) return;
+      if(!semMap[s.chave].gestores[g]) semMap[s.chave].gestores[g]=[];
+      semMap[s.chave].gestores[g].push(v);
+    });
+  });
+  var chavesSem=Object.keys(semMap).sort(function(a,b){var sa=semMap[a],sb=semMap[b];return sa.ano-sb.ano||sa.sem-sb.sem;});
+  linhas.push('<div>');
+  linhas.push('<strong>🧑‍💼 NOSSA EVOLUÇÃO COMO GESTORES:</strong>');
+  if(!chavesSem.length){
+    linhas.push('<div class="empty" style="margin-top:8px;">Ainda não há notas de gestores suficientes pra essa análise.</div>');
+  } else {
+    var atualChave=chavesSem[chavesSem.length-1];
+    var anteriorChave=chavesSem.length>1?chavesSem[chavesSem.length-2]:null;
+    var todasNotasAtual=[];
+    GESTORES.forEach(function(g){ todasNotasAtual=todasNotasAtual.concat(semMap[atualChave].gestores[g]||[]); });
+    var mediaGeralAtual=todasNotasAtual.length?(todasNotasAtual.reduce(function(a,b){return a+b;},0)/todasNotasAtual.length):null;
+    var mediaGeralAnterior=null;
+    if(anteriorChave){
+      var todasNotasAnterior=[];
+      GESTORES.forEach(function(g){ todasNotasAnterior=todasNotasAnterior.concat(semMap[anteriorChave].gestores[g]||[]); });
+      mediaGeralAnterior=todasNotasAnterior.length?(todasNotasAnterior.reduce(function(a,b){return a+b;},0)/todasNotasAnterior.length):null;
+    }
+    var evoGeralTxt='';
+    if(mediaGeralAtual!==null&&mediaGeralAnterior!==null&&mediaGeralAnterior>0){
+      var evoGeral=((mediaGeralAtual-mediaGeralAnterior)/mediaGeralAnterior)*100;
+      var corG=evoGeral>=0?'#2E7D32':'#C62828';
+      evoGeralTxt=' <span style="color:'+corG+';font-weight:600;">('+(evoGeral>=0?'+':'')+evoGeral.toFixed(1)+'% vs '+semMap[anteriorChave].label+')</span>';
+    }
+    linhas.push('<div style="background:#F0F4FF;border-radius:8px;padding:10px 14px;margin-top:8px;margin-bottom:10px;">'+
+      'Nota média geral da gestão em '+semMap[atualChave].label+': <strong>'+(mediaGeralAtual!==null?mediaGeralAtual.toFixed(1)+'/10':'—')+'</strong>'+evoGeralTxt+
+    '</div>');
+
+    GESTORES.forEach(function(g){
+      var atual=semMap[atualChave].gestores[g]||[];
+      var mediaAtualG=atual.length?(atual.reduce(function(a,b){return a+b;},0)/atual.length):null;
+      var mediaAnteriorG=null;
+      if(anteriorChave){
+        var ant=semMap[anteriorChave].gestores[g]||[];
+        mediaAnteriorG=ant.length?(ant.reduce(function(a,b){return a+b;},0)/ant.length):null;
+      }
+      var linha='<div style="font-size:13px;margin-bottom:5px;"><strong>'+g+':</strong> ';
+      if(mediaAtualG===null){
+        linha+='<span style="color:#90A4AE;">sem avaliações neste semestre</span>';
+      } else {
+        linha+=mediaAtualG.toFixed(1)+'/10';
+        if(mediaAnteriorG!==null&&mediaAnteriorG>0){
+          var evoG=((mediaAtualG-mediaAnteriorG)/mediaAnteriorG)*100;
+          if(evoG>3) linha+=' <span style="color:#2E7D32;">↑ subindo ('+(evoG>=0?'+':'')+evoG.toFixed(1)+'%) — continuar com a mesma abordagem.</span>';
+          else if(evoG<-3) linha+=' <span style="color:#C62828;">↓ caindo ('+evoG.toFixed(1)+'%) — vale entender o motivo com a equipe e ajustar a comunicação/presença.</span>';
+          else linha+=' <span style="color:#546E7A;">→ estável.</span>';
+        }
+      }
+      linha+='</div>';
+      linhas.push(linha);
+    });
+  }
+  linhas.push('</div>');
+
+  el.innerHTML=linhas.join('');
 }
 
 // ===== PERÍODOS =====
