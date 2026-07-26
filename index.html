@@ -141,6 +141,7 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
   <button class="nb active" onclick="trocarAba('dashboard',this)">Dashboard</button>
   <button class="nb" onclick="trocarAba('lancar',this)">Lançar Horas</button>
   <button class="nb" onclick="trocarAba('colaboradores',this)">Colaboradores</button>
+  <button class="nb" onclick="trocarAba('oo',this)">🗣️ 1x1</button>
   <button class="nb" onclick="trocarAba('simulador',this)">Simulador</button>
   <button class="nb" onclick="trocarAba('turno',this)">👥 Turno do Dia</button>
   <button class="nb" onclick="trocarAba('historico',this)">Histórico</button>
@@ -301,6 +302,45 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
           <tbody id="tbody-col"></tbody>
         </table>
         <div id="col-vazia" style="display:none;" class="empty">Nenhum colaborador encontrado.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1x1 -->
+  <div id="tab-oo" class="tab-page">
+    <div class="sbar">
+      <input type="text" id="oo-busca" placeholder="Buscar colaborador..." oninput="renderOOLista()"/>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button class="btn-sm btn-e" id="oo-view-lista" onclick="setViewOO('lista')" style="font-weight:700;background:#E3F2FD;color:#1565C0;">Colaboradores</button>
+        <button class="btn-sm" id="oo-view-painel" onclick="setViewOO('painel')" style="background:#ECEFF1;color:#546E7A;">Painel de Gestores</button>
+      </div>
+    </div>
+
+    <div id="oo-sub-lista">
+      <div class="section">
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr>
+              <th>Nome</th><th>Cargo</th><th>Último 1x1</th><th>Gestor</th><th class="ta-c">Nota gestão</th><th class="ta-c">Ações</th>
+            </tr></thead>
+            <tbody id="oo-tbody"></tbody>
+          </table>
+          <div id="oo-vazia" style="display:none;" class="empty">Nenhum colaborador encontrado.</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="oo-sub-painel" style="display:none;">
+      <div class="section" style="margin-bottom:1.25rem;">
+        <div class="sh">
+          <span class="st">Nível de aceitação dos gestores — mês atual</span>
+          <span style="font-size:12px;color:#546E7A;" id="oo-mes-atual-lbl">—</span>
+        </div>
+        <div style="padding:1.1rem;" id="oo-painel-mes"></div>
+      </div>
+      <div class="section">
+        <div class="sh"><span class="st">Evolução semestral — aceitação dos gestores</span></div>
+        <div style="overflow-x:auto;" id="oo-painel-semestre"></div>
       </div>
     </div>
   </div>
@@ -665,6 +705,52 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
   </div>
 </div>
 
+<div class="overlay" id="overlay-oo">
+  <div class="modal" style="max-width:720px;">
+    <h2 id="oo-titulo">1x1 — Colaborador</h2>
+    <input type="hidden" id="oo-id"/>
+    <input type="hidden" id="oo-colab-id"/>
+    <div class="fg fg2" style="margin-bottom:.5rem;">
+      <div><label class="lbl">Mês de referência</label><input type="month" id="oo-mes"/></div>
+      <div><label class="lbl">Data do 1x1</label><input type="date" id="oo-data"/></div>
+    </div>
+    <div class="fg fg1" style="margin-bottom:1rem;">
+      <div><label class="lbl">Gestor responsável pela entrevista</label>
+        <select id="oo-gestor-resp"></select>
+      </div>
+    </div>
+
+    <div style="font-size:12px;font-weight:700;color:#1565C0;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">Conversa</div>
+    <div id="oo-perguntas-wrap" class="fg fg1"></div>
+
+    <div style="font-size:12px;font-weight:700;color:#1565C0;text-transform:uppercase;letter-spacing:.04em;margin:1rem 0 8px;">Avaliação da gestão</div>
+    <div class="fg fg2" style="margin-bottom:1rem;">
+      <div><label class="lbl">Nota para a gestão da manutenção (0 a 10)</label><input type="number" id="oo-nota-gestao" min="0" max="10" step="1"/></div>
+      <div><label class="lbl">Por que dessa nota?</label><input id="oo-motivo-nota-gestao" placeholder="Motivo da nota"/></div>
+    </div>
+
+    <div style="font-size:12px;font-weight:700;color:#1565C0;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">Confiança em cada gestor <span style="font-weight:400;color:#546E7A;text-transform:none;">— conhecimento técnico e suporte, de 0 a 10</span></div>
+    <div id="oo-gestores-wrap" class="fg fg3" style="margin-bottom:1rem;"></div>
+
+    <div style="margin-bottom:.5rem;"><label class="lbl">Observações gerais</label><textarea id="oo-obs" rows="2" placeholder="Outras observações..."></textarea></div>
+
+    <div class="mfooter">
+      <button class="btn-cancel" onclick="fecharOverlay('overlay-oo')">Cancelar</button>
+      <button class="btn btn-p" onclick="salvarOO()">Salvar 1x1</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-oo-hist">
+  <div class="modal" style="max-width:680px;">
+    <h2 id="oo-hist-titulo">Histórico de 1x1</h2>
+    <div id="oo-hist-lista"></div>
+    <div class="mfooter">
+      <button class="btn-cancel" onclick="fecharOverlay('overlay-oo-hist')">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ===== DADOS PADRÃO (base fixa — nunca se perde) =====
 var COLABORADORES_BASE = [
@@ -739,7 +825,9 @@ function salvarLS(){
     historico:   historico,
     periodoAtivo: periodoAtivo,
     nextColId:   nextColId,
-    nextPeriodoId: nextPeriodoId
+    nextPeriodoId: nextPeriodoId,
+    oneOnOnes:   oneOnOnes,
+    nextOneOnOneId: nextOneOnOneId
   };
 
   fetch(API_URL, {
@@ -801,6 +889,8 @@ function carregarLS(){
       if(d.periodoAtivo !== undefined) periodoAtivo = d.periodoAtivo;
       if(d.nextColId    !== undefined) nextColId    = d.nextColId;
       if(d.nextPeriodoId!== undefined) nextPeriodoId= d.nextPeriodoId;
+      if(d.oneOnOnes)                   oneOnOnes    = d.oneOnOnes;
+      if(d.nextOneOnOneId!== undefined) nextOneOnOneId = d.nextOneOnOneId;
     }
     // Migrar dados antigos para novo padrão
     migrarPeriodos();
@@ -823,6 +913,8 @@ function carregarLS(){
         if(d.periodoAtivo)  periodoAtivo   = d.periodoAtivo;
         if(d.nextColId)     nextColId      = d.nextColId;
         if(d.nextPeriodoId) nextPeriodoId  = d.nextPeriodoId;
+        if(d.oneOnOnes)     oneOnOnes      = d.oneOnOnes;
+        if(d.nextOneOnOneId) nextOneOnOneId = d.nextOneOnOneId;
       }
     }catch(e){}
     migrarPeriodos();
@@ -841,6 +933,8 @@ function resetarDados(){
   periodoAtivo   = 1;
   nextColId      = NEXT_COL_BASE;
   nextPeriodoId  = NEXT_PERIODO_BASE;
+  oneOnOnes      = [];
+  nextOneOnOneId = 1;
   salvarLS();
   render();
 }
@@ -855,6 +949,23 @@ var periodoAtivo  = 1;
 var historico     = [];
 var colaboradores = JSON.parse(JSON.stringify(COLABORADORES_BASE));
 var periodos      = JSON.parse(JSON.stringify(PERIODOS_BASE));
+
+// ===== 1x1 / AVALIAÇÕES — dados =====
+var GESTORES = ["Cleison","Hudin","Ezequias","Vinicius","Joilson"];
+var OO_PERGUNTAS = [
+  {key:'diaDia',       label:'Como está seu dia a dia na manutenção?'},
+  {key:'convivencia',  label:'Como está sua convivência com os parceiros de profissão?'},
+  {key:'expectativa',  label:'Qual sua expectativa aqui dentro da Liv Up?'},
+  {key:'ondeChegar',   label:'Onde você espera chegar aqui na Liv Up nos próximos anos?'},
+  {key:'incomoda',     label:'Tem alguma coisa que te incomoda aqui no trabalho?'},
+  {key:'dificuldades', label:'Quais suas dificuldades e como nós, gestores, podemos te ajudar?'},
+  {key:'objetivos',    label:'Quais são seus objetivos aqui dentro e como podemos te ajudar a chegar lá?'},
+  {key:'pontoForte',   label:'Qual seu ponto forte dentro do seu profissional?'},
+  {key:'pontoFraco',   label:'Qual seu ponto fraco e o que podemos trabalhar nesse ponto?'}
+];
+var oneOnOnes      = [];
+var nextOneOnOneId = 1;
+var viewOO         = 'lista';
 
 // Utilitário global de formatação de horas
 function fmtH(h){
@@ -1599,6 +1710,250 @@ function excluirColaborador(id){
   render(); renderColaboradores();
 }
 
+// ===== 1x1 / AVALIAÇÕES =====
+function mesAtualStr(){
+  var d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+}
+function mesLabelOO(mesStr){
+  if(!mesStr) return '—';
+  var partes=mesStr.split('-');
+  var mesIdx=parseInt(partes[1],10)-1;
+  return (MESES_PT[mesIdx]||'')+'/'+partes[0];
+}
+function semestreDe(mesStr){
+  var partes=mesStr.split('-');
+  var ano=partes[0];
+  var mes=parseInt(partes[1],10);
+  var sem=mes<=6?1:2;
+  return {chave:ano+'-S'+sem, label:sem+'º sem/'+ano, ano:parseInt(ano,10), sem:sem};
+}
+function getOOsColab(colabId){
+  return oneOnOnes.filter(function(o){return o.colaboradorId===colabId;})
+    .sort(function(a,b){return (a.mes||'').localeCompare(b.mes||'')||(a.data||'').localeCompare(b.data||'');});
+}
+function getUltimaOO(colabId){
+  var lista=getOOsColab(colabId);
+  return lista.length?lista[lista.length-1]:null;
+}
+
+function setViewOO(v){
+  viewOO=v;
+  document.getElementById('oo-sub-lista').style.display=v==='lista'?'block':'none';
+  document.getElementById('oo-sub-painel').style.display=v==='painel'?'block':'none';
+  var bLista=document.getElementById('oo-view-lista'), bPainel=document.getElementById('oo-view-painel');
+  bLista.style.background=v==='lista'?'#E3F2FD':'#ECEFF1'; bLista.style.color=v==='lista'?'#1565C0':'#546E7A'; bLista.style.fontWeight=v==='lista'?'700':'400';
+  bPainel.style.background=v==='painel'?'#E3F2FD':'#ECEFF1'; bPainel.style.color=v==='painel'?'#1565C0':'#546E7A'; bPainel.style.fontWeight=v==='painel'?'700':'400';
+  if(v==='painel') renderOOPainel(); else renderOOLista();
+}
+
+function renderOO(){
+  setViewOO(viewOO);
+}
+
+function renderOOLista(){
+  var b=document.getElementById('oo-busca').value.toLowerCase();
+  var lista=colaboradores.filter(function(c){
+    return c.ativo!==false && (!b||c.nome.toLowerCase().includes(b)||c.cargo.toLowerCase().includes(b));
+  });
+  var tbody=document.getElementById('oo-tbody');
+  var vazia=document.getElementById('oo-vazia');
+  if(!lista.length){tbody.innerHTML='';vazia.style.display='block';return;}
+  vazia.style.display='none';
+  var h='';
+  lista.forEach(function(c){
+    var u=getUltimaOO(c.id);
+    h+='<tr>'+
+      '<td style="font-weight:500;">'+c.nome+'</td>'+
+      '<td style="color:#546E7A;font-size:12px;">'+c.cargo+'</td>'+
+      '<td>'+(u?mesLabelOO(u.mes):'<span style="color:#90A4AE;">Nenhum ainda</span>')+'</td>'+
+      '<td>'+(u?u.gestorResponsavel:'—')+'</td>'+
+      '<td class="ta-c">'+(u&&u.notaGestao!==undefined&&u.notaGestao!==null&&u.notaGestao!==''?'<span class="badge '+(u.notaGestao>=7?'bg':u.notaGestao>=5?'bo':'br')+'">'+u.notaGestao+'</span>':'—')+'</td>'+
+      '<td class="ta-c"><span style="display:flex;gap:5px;justify-content:center;">'+
+        '<button class="btn-sm btn-e" onclick="abrirModalOO('+c.id+')">📝 Novo 1x1</button>'+
+        '<button class="btn-sm" style="background:#ECEFF1;color:#546E7A;" onclick="abrirHistoricoOO('+c.id+')">📜 Histórico</button>'+
+      '</span></td></tr>';
+  });
+  tbody.innerHTML=h;
+}
+
+function abrirModalOO(colabId){
+  var c=getCol(colabId);
+  if(!c) return;
+  document.getElementById('overlay-oo').classList.add('show');
+  document.getElementById('oo-titulo').textContent='1x1 — '+c.nome;
+  document.getElementById('oo-id').value='';
+  document.getElementById('oo-colab-id').value=colabId;
+  document.getElementById('oo-mes').value=mesAtualStr();
+  document.getElementById('oo-data').value=new Date().toISOString().split('T')[0];
+
+  var selGestor=document.getElementById('oo-gestor-resp');
+  selGestor.innerHTML=GESTORES.map(function(g){return '<option value="'+g+'">'+g+'</option>';}).join('');
+
+  var wrapQ=document.getElementById('oo-perguntas-wrap');
+  wrapQ.innerHTML=OO_PERGUNTAS.map(function(p){
+    return '<div><label class="lbl">'+p.label+'</label><textarea id="oo-q-'+p.key+'" rows="2"></textarea></div>';
+  }).join('');
+
+  document.getElementById('oo-nota-gestao').value='';
+  document.getElementById('oo-motivo-nota-gestao').value='';
+
+  var wrapG=document.getElementById('oo-gestores-wrap');
+  wrapG.innerHTML=GESTORES.map(function(g){
+    return '<div><label class="lbl">'+g+'</label><input type="number" min="0" max="10" step="1" id="oo-nota-gestor-'+g.replace(/\s+/g,'_')+'"/></div>';
+  }).join('');
+
+  document.getElementById('oo-obs').value='';
+}
+
+function salvarOO(){
+  var colabId=parseInt(document.getElementById('oo-colab-id').value,10);
+  var mes=document.getElementById('oo-mes').value;
+  var data=document.getElementById('oo-data').value;
+  if(!mes||!data){alert('Informe o mês de referência e a data do 1x1.');return;}
+
+  var respostas={};
+  OO_PERGUNTAS.forEach(function(p){
+    respostas[p.key]=document.getElementById('oo-q-'+p.key).value.trim();
+  });
+
+  var notasGestores={};
+  GESTORES.forEach(function(g){
+    var el=document.getElementById('oo-nota-gestor-'+g.replace(/\s+/g,'_'));
+    var v=el.value!==''?parseFloat(el.value):null;
+    notasGestores[g]=(v===null||isNaN(v))?null:Math.max(0,Math.min(10,v));
+  });
+
+  var notaGestaoRaw=document.getElementById('oo-nota-gestao').value;
+  var notaGestao=notaGestaoRaw!==''?Math.max(0,Math.min(10,parseFloat(notaGestaoRaw))):null;
+
+  var obj={
+    id:nextOneOnOneId++,
+    colaboradorId:colabId,
+    mes:mes,
+    data:data,
+    gestorResponsavel:document.getElementById('oo-gestor-resp').value,
+    respostas:respostas,
+    notaGestao:notaGestao,
+    motivoNotaGestao:document.getElementById('oo-motivo-nota-gestao').value.trim(),
+    notasGestores:notasGestores,
+    obs:document.getElementById('oo-obs').value.trim()
+  };
+  oneOnOnes.push(obj);
+  fecharOverlay('overlay-oo');
+  render();
+  renderOOLista();
+  alert('✅ 1x1 registrado com sucesso!');
+}
+
+function excluirOO(id){
+  if(!confirm('Excluir este registro de 1x1? Esta ação não pode ser desfeita.')) return;
+  oneOnOnes=oneOnOnes.filter(function(o){return o.id!==id;});
+  render();
+  renderOOLista();
+  abrirHistoricoOO(window._ooHistColabId);
+}
+
+function abrirHistoricoOO(colabId){
+  window._ooHistColabId=colabId;
+  var c=getCol(colabId);
+  document.getElementById('overlay-oo-hist').classList.add('show');
+  document.getElementById('oo-hist-titulo').textContent='Histórico de 1x1 — '+(c?c.nome:'');
+  var lista=getOOsColab(colabId).slice().reverse();
+  var el=document.getElementById('oo-hist-lista');
+  if(!lista.length){el.innerHTML='<div class="empty">Nenhum 1x1 registrado ainda.</div>';return;}
+  var h='';
+  lista.forEach(function(o){
+    var notasG=GESTORES.map(function(g){
+      var v=o.notasGestores?o.notasGestores[g]:null;
+      return '<span style="display:inline-block;margin-right:10px;">'+g+': <strong>'+(v!==null&&v!==undefined?v:'—')+'</strong></span>';
+    }).join('');
+    h+='<div class="hist-item">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'+
+        '<div style="font-weight:600;">'+mesLabelOO(o.mes)+' <span style="font-weight:400;color:#546E7A;font-size:12px;">· '+o.data.split('-').reverse().join('/')+' · entrevistado por '+o.gestorResponsavel+'</span></div>'+
+        '<button class="btn-sm btn-d" onclick="excluirOO('+o.id+')">Excluir</button>'+
+      '</div>'+
+      '<div style="font-size:12px;color:#546E7A;margin-bottom:6px;"><strong style="color:#1a1a2e;">Nota para a gestão:</strong> '+(o.notaGestao!==null&&o.notaGestao!==undefined?o.notaGestao:'—')+(o.motivoNotaGestao?' — '+o.motivoNotaGestao:'')+'</div>'+
+      '<div style="font-size:12px;color:#546E7A;margin-bottom:6px;">'+notasG+'</div>'+
+      OO_PERGUNTAS.filter(function(p){return o.respostas&&o.respostas[p.key];}).map(function(p){
+        return '<div style="font-size:12px;margin-top:4px;"><strong>'+p.label+'</strong><br>'+o.respostas[p.key]+'</div>';
+      }).join('')+
+      (o.obs?'<div style="font-size:12px;margin-top:4px;"><strong>Observações:</strong><br>'+o.obs+'</div>':'')+
+    '</div>';
+  });
+  el.innerHTML=h;
+}
+
+// ----- Painel de gestores: aceitação mensal e evolução semestral -----
+function renderOOPainel(){
+  var mesAtual=mesAtualStr();
+  document.getElementById('oo-mes-atual-lbl').textContent=mesLabelOO(mesAtual);
+
+  var doMes=oneOnOnes.filter(function(o){return o.mes===mesAtual;});
+  var hMes='';
+  GESTORES.forEach(function(g){
+    var notas=doMes.map(function(o){return o.notasGestores?o.notasGestores[g]:null;}).filter(function(v){return v!==null&&v!==undefined;});
+    var media=notas.length?(notas.reduce(function(a,b){return a+b;},0)/notas.length):null;
+    var pct=media!==null?(media/10*100):0;
+    var cor=media===null?'#CFD8DC':(media>=7?'#2E7D32':media>=5?'#E65100':'#C62828');
+    hMes+='<div class="bar-row">'+
+      '<div class="bar-name">'+g+'</div>'+
+      '<div class="bar-track"><div class="bar-fill" style="width:'+pct+'%;background:'+cor+';"></div></div>'+
+      '<div class="bar-val">'+(media!==null?media.toFixed(1)+'/10':'sem dados')+'</div>'+
+    '</div>';
+  });
+  document.getElementById('oo-painel-mes').innerHTML=hMes||'<div class="empty">Nenhum 1x1 registrado ainda.</div>';
+
+  var semMap={};
+  oneOnOnes.forEach(function(o){
+    if(!o.mes) return;
+    var s=semestreDe(o.mes);
+    if(!semMap[s.chave]) semMap[s.chave]={label:s.label,ano:s.ano,sem:s.sem,gestores:{}};
+    GESTORES.forEach(function(g){
+      var v=o.notasGestores?o.notasGestores[g]:null;
+      if(v===null||v===undefined) return;
+      if(!semMap[s.chave].gestores[g]) semMap[s.chave].gestores[g]=[];
+      semMap[s.chave].gestores[g].push(v);
+    });
+  });
+  var chaves=Object.keys(semMap).sort(function(a,b){
+    var sa=semMap[a],sb=semMap[b];
+    return sa.ano-sb.ano||sa.sem-sb.sem;
+  });
+  var elSem=document.getElementById('oo-painel-semestre');
+  if(!chaves.length){elSem.innerHTML='<div class="empty" style="padding:1.1rem;">Ainda não há dados suficientes para calcular a evolução semestral.</div>';return;}
+
+  var mediasPorChave={};
+  chaves.forEach(function(k){
+    mediasPorChave[k]={};
+    GESTORES.forEach(function(g){
+      var arr=semMap[k].gestores[g]||[];
+      mediasPorChave[k][g]=arr.length?(arr.reduce(function(a,b){return a+b;},0)/arr.length):null;
+    });
+  });
+
+  var thead='<tr><th>Semestre</th>'+GESTORES.map(function(g){return '<th class="ta-c">'+g+'</th>';}).join('')+'</tr>';
+  var tbody='';
+  chaves.forEach(function(k,idx){
+    tbody+='<tr><td style="font-weight:600;">'+semMap[k].label+'</td>';
+    GESTORES.forEach(function(g){
+      var media=mediasPorChave[k][g];
+      var cell=media!==null?media.toFixed(1):'—';
+      if(idx>0){
+        var mediaAnterior=mediasPorChave[chaves[idx-1]][g];
+        if(media!==null&&mediaAnterior!==null&&mediaAnterior>0){
+          var evo=((media-mediaAnterior)/mediaAnterior)*100;
+          var corEvo=evo>=0?'#2E7D32':'#C62828';
+          cell+=' <span style="font-size:11px;color:'+corEvo+';">('+(evo>=0?'+':'')+evo.toFixed(1)+'%)</span>';
+        }
+      }
+      tbody+='<td class="ta-c">'+cell+'</td>';
+    });
+    tbody+='</tr>';
+  });
+  elSem.innerHTML='<table><thead>'+thead+'</thead><tbody>'+tbody+'</tbody></table>';
+}
+
 // ===== PERÍODOS =====
 function abrirModalPeriodo(id){
   document.getElementById('overlay-periodo').classList.add('show');
@@ -1928,6 +2283,7 @@ function trocarAba(aba,btn){
   document.getElementById('tab-'+aba).classList.add('active');
   if(btn) btn.classList.add('active');
   if(aba==='colaboradores') renderColaboradores();
+  if(aba==='oo') renderOO();
 }
 
 function fecharOverlay(id){document.getElementById(id).classList.remove('show');}
@@ -2780,7 +3136,9 @@ function exportarDados(){
     historico:historico,
     periodoAtivo:periodoAtivo,
     nextColId:nextColId,
-    nextPeriodoId:nextPeriodoId
+    nextPeriodoId:nextPeriodoId,
+    oneOnOnes:oneOnOnes,
+    nextOneOnOneId:nextOneOnOneId
   };
   var json=JSON.stringify(dados,null,2);
   var blob=new Blob([json],{type:'application/json'});
@@ -2813,6 +3171,8 @@ function importarDados(input){
       periodoAtivo=dados.periodoAtivo||1;
       nextColId=dados.nextColId||15;
       nextPeriodoId=dados.nextPeriodoId||2;
+      oneOnOnes=dados.oneOnOnes||[];
+      nextOneOnOneId=dados.nextOneOnOneId||1;
       salvarLS();
       render();
       alert('✅ Dados importados com sucesso!');
