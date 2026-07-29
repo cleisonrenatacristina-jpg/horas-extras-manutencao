@@ -1977,8 +1977,7 @@ function abrirModalOO(colabId){
           '<input type="text" id="oo-gd-'+gid+'-'+d.key+'-motivo" placeholder="Por que essa nota?"/>'+
         '</div>';
       }).join('')+
-      '<div style="margin:8px 0;"><label class="lbl">O que ele faz muito bem por você e pela equipe?</label><textarea id="oo-pontoforte-gestor-'+gid+'" rows="2"></textarea></div>'+
-      '<div style="margin-bottom:8px;"><label class="lbl">O que você gostaria que ele continuasse fazendo?</label><textarea id="oo-continuar-gestor-'+gid+'" rows="2"></textarea></div>'+
+      '<div style="margin:8px 0;"><label class="lbl">O que ele faz muito bem por você e pela equipe, que você gostaria que ele continuasse fazendo?</label><textarea id="oo-pontoforte-gestor-'+gid+'" rows="2"></textarea></div>'+
       '<div><label class="lbl">O que poderia melhorar no dia a dia com você e a equipe?</label><textarea id="oo-melhorar-gestor-'+gid+'" rows="2"></textarea></div>'+
     '</div>';
   }).join('');
@@ -2016,7 +2015,6 @@ function salvarOO(){
       nota:(v===null||isNaN(v))?null:Math.max(0,Math.min(10,v)),
       motivo:(document.getElementById('oo-motivo-gestor-'+gid)||{}).value?document.getElementById('oo-motivo-gestor-'+gid).value.trim():'',
       pontoForte:(document.getElementById('oo-pontoforte-gestor-'+gid)||{}).value?document.getElementById('oo-pontoforte-gestor-'+gid).value.trim():'',
-      continuar:(document.getElementById('oo-continuar-gestor-'+gid)||{}).value?document.getElementById('oo-continuar-gestor-'+gid).value.trim():'',
       melhorar:(document.getElementById('oo-melhorar-gestor-'+gid)||{}).value?document.getElementById('oo-melhorar-gestor-'+gid).value.trim():'',
       dims:dims
     };
@@ -2091,7 +2089,8 @@ function abrirHistoricoOO(colabId){
         return '<br>'+d.label+' <strong>'+dv.nota+'/10</strong>'+(dv.motivo?' — '+dv.motivo:'');
       }).join('');
       if(!pf&&!ct&&!mv&&!ml&&!dimsTxt) return '';
-      return '<div style="font-size:12px;margin-top:4px;"><strong>'+g+'</strong>'+(mv?' — motivo da nota de confiança: '+mv:'')+dimsTxt+(pf?'<br>Faz muito bem: '+pf:'')+(ct?'<br>Continuar fazendo: '+ct:'')+(ml?'<br>Poderia melhorar: '+ml:'')+'</div>';
+      var faz=[pf,ct].filter(function(x){return x;}).join(' / ');
+      return '<div style="font-size:12px;margin-top:4px;"><strong>'+g+'</strong>'+(mv?' — motivo da nota de confiança: '+mv:'')+dimsTxt+(faz?'<br>Faz muito bem / gostaria que continuasse: '+faz:'')+(ml?'<br>Poderia melhorar: '+ml:'')+'</div>';
     }).join('');
     h+='<div class="hist-item">'+
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'+
@@ -2405,9 +2404,9 @@ function renderAgenteOO(){
       }
       linha+='</div>';
       var txt=semMap[atualChave].textos[g];
-      if(txt&&(txt.forte.length||txt.continuar.length||(txt.melhorar&&txt.melhorar.length))){
-        if(txt.forte.length) linha+='<div style="font-size:12px;color:#2E7D32;margin:2px 0 2px 14px;">✅ Faz muito bem: '+txt.forte.join(' · ')+'</div>';
-        if(txt.continuar.length) linha+='<div style="font-size:12px;color:#1565C0;margin:0 0 6px 14px;">💡 Continuar fazendo: '+txt.continuar.join(' · ')+'</div>';
+      var fazTodos=(txt?txt.forte.concat(txt.continuar||[]):[]);
+      if(txt&&(fazTodos.length||(txt.melhorar&&txt.melhorar.length))){
+        if(fazTodos.length) linha+='<div style="font-size:12px;color:#2E7D32;margin:2px 0 2px 14px;">✅ Faz muito bem / gostariam que continuasse: '+fazTodos.join(' · ')+'</div>';
         if(txt.melhorar&&txt.melhorar.length) linha+='<div style="font-size:12px;color:#E65100;margin:0 0 6px 14px;">📌 Colaboradores acham que poderia melhorar: '+txt.melhorar.join(' · ')+'</div>';
       }
       var dimsG=(semMap[atualChave].dims||{})[g]||{};
