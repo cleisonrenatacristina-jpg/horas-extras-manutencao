@@ -988,6 +988,21 @@ var periodos      = JSON.parse(JSON.stringify(PERIODOS_BASE));
 
 // ===== 1x1 / AVALIAÇÕES — dados =====
 var GESTORES = ["Cleison","Hudin","Ezequias","Vinicius","Joilson"];
+// Notas extras sobre cada gestor — nota 0-10 + motivo, uma por gestor
+var OO_NOTAS_GESTOR = [
+  {key:'semFavoritismo', label:'De 0 a 10, o quanto a análise dele é feita sem favoritismo de alguém?'},
+  {key:'elogia',         label:'De 0 a 10, o quanto ele elogia o seu trabalho ou o da equipe?'},
+  {key:'suporte',        label:'De 0 a 10, quando você precisa de suporte, o quanto ele te dá esse suporte?'},
+  {key:'acessivel',      label:'De 0 a 10, o quanto ele é acessível?'},
+  {key:'abertura',       label:'De 0 a 10, o quanto você se sente à vontade de falar sobre problemas pessoais e profissionais com ele?'}
+];
+var OO_SUGESTOES_GESTOR = {
+  semFavoritismo:'Reforçar critérios objetivos e explicar o porquê de cada decisão/avaliação pra equipe, evitando parecer pessoal.',
+  elogia:'Reconhecer publicamente pequenas vitórias e bons resultados com mais frequência, não só nas avaliações formais.',
+  suporte:'Ser mais ágil ao dar suporte quando a equipe pede ajuda, e confirmar depois se o problema foi realmente resolvido.',
+  acessivel:'Abrir mais espaços informais de conversa e responder com mais agilidade quando for procurado.',
+  abertura:'Construir mais confiança no dia a dia pra equipe se sentir segura de compartilhar questões pessoais e profissionais.'
+};
 var OO_PERGUNTAS = [
   {key:'diaDia',              label:'Como está seu dia a dia na manutenção?'},
   {key:'convivencia',         label:'Como está sua convivência com os parceiros de profissão?'},
@@ -1857,6 +1872,11 @@ function gestorField(o,g,campo){
   if(!v||typeof v!=='object') return '';
   return v[campo]||'';
 }
+function gestorDim(o,g,key){
+  var v=o.notasGestores?o.notasGestores[g]:null;
+  if(!v||typeof v!=='object'||!v.dims||!v.dims[key]) return {nota:null,motivo:''};
+  return v.dims[key];
+}
 
 function setViewOO(v){
   viewOO=v;
@@ -1947,11 +1967,19 @@ function abrirModalOO(colabId){
     return '<div style="border:1px solid #E3E7FB;border-radius:10px;padding:10px 12px;margin-bottom:10px;background:#FAFBFF;">'+
       '<div style="font-weight:700;color:#1a1a2e;margin-bottom:8px;">'+g+'</div>'+
       '<div style="display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:end;margin-bottom:8px;">'+
-        '<div><label class="lbl">Nota (0-10)</label><input type="number" min="0" max="10" step="1" id="oo-nota-gestor-'+gid+'"/></div>'+
+        '<div><label class="lbl">Nota de confiança (0-10)</label><input type="number" min="0" max="10" step="1" id="oo-nota-gestor-'+gid+'"/></div>'+
         '<div><label class="lbl">Por que essa nota?</label><input type="text" id="oo-motivo-gestor-'+gid+'" placeholder="Motivo da nota"/></div>'+
       '</div>'+
-      '<div style="margin-bottom:8px;"><label class="lbl">O que ele faz muito bem por você e pela equipe?</label><textarea id="oo-pontoforte-gestor-'+gid+'" rows="2"></textarea></div>'+
-      '<div><label class="lbl">O que você gostaria que ele continuasse fazendo?</label><textarea id="oo-continuar-gestor-'+gid+'" rows="2"></textarea></div>'+
+      OO_NOTAS_GESTOR.map(function(d){
+        return '<div style="display:grid;grid-template-columns:1.5fr 60px 1.2fr;gap:8px;align-items:center;margin-bottom:6px;">'+
+          '<label class="lbl" style="margin-bottom:0;">'+d.label+'</label>'+
+          '<input type="number" min="0" max="10" step="1" id="oo-gd-'+gid+'-'+d.key+'"/>'+
+          '<input type="text" id="oo-gd-'+gid+'-'+d.key+'-motivo" placeholder="Por que essa nota?"/>'+
+        '</div>';
+      }).join('')+
+      '<div style="margin:8px 0;"><label class="lbl">O que ele faz muito bem por você e pela equipe?</label><textarea id="oo-pontoforte-gestor-'+gid+'" rows="2"></textarea></div>'+
+      '<div style="margin-bottom:8px;"><label class="lbl">O que você gostaria que ele continuasse fazendo?</label><textarea id="oo-continuar-gestor-'+gid+'" rows="2"></textarea></div>'+
+      '<div><label class="lbl">O que poderia melhorar no dia a dia com você e a equipe?</label><textarea id="oo-melhorar-gestor-'+gid+'" rows="2"></textarea></div>'+
     '</div>';
   }).join('');
 
@@ -1974,11 +2002,23 @@ function salvarOO(){
     var gid=g.replace(/\s+/g,'_');
     var el=document.getElementById('oo-nota-gestor-'+gid);
     var v=el.value!==''?parseFloat(el.value):null;
+    var dims={};
+    OO_NOTAS_GESTOR.forEach(function(d){
+      var elN=document.getElementById('oo-gd-'+gid+'-'+d.key);
+      var elM=document.getElementById('oo-gd-'+gid+'-'+d.key+'-motivo');
+      var vd=elN&&elN.value!==''?parseFloat(elN.value):null;
+      dims[d.key]={
+        nota:(vd===null||isNaN(vd))?null:Math.max(0,Math.min(10,vd)),
+        motivo:elM?elM.value.trim():''
+      };
+    });
     notasGestores[g]={
       nota:(v===null||isNaN(v))?null:Math.max(0,Math.min(10,v)),
       motivo:(document.getElementById('oo-motivo-gestor-'+gid)||{}).value?document.getElementById('oo-motivo-gestor-'+gid).value.trim():'',
       pontoForte:(document.getElementById('oo-pontoforte-gestor-'+gid)||{}).value?document.getElementById('oo-pontoforte-gestor-'+gid).value.trim():'',
-      continuar:(document.getElementById('oo-continuar-gestor-'+gid)||{}).value?document.getElementById('oo-continuar-gestor-'+gid).value.trim():''
+      continuar:(document.getElementById('oo-continuar-gestor-'+gid)||{}).value?document.getElementById('oo-continuar-gestor-'+gid).value.trim():'',
+      melhorar:(document.getElementById('oo-melhorar-gestor-'+gid)||{}).value?document.getElementById('oo-melhorar-gestor-'+gid).value.trim():'',
+      dims:dims
     };
   });
 
@@ -2044,9 +2084,14 @@ function abrirHistoricoOO(colabId){
       return '<span style="display:inline-block;margin-right:10px;">'+g+': <strong>'+(v!==null&&v!==undefined?v:'—')+'</strong></span>';
     }).join('');
     var detalhesG=GESTORES.map(function(g){
-      var pf=gestorField(o,g,'pontoForte'),ct=gestorField(o,g,'continuar'),mv=gestorField(o,g,'motivo');
-      if(!pf&&!ct&&!mv) return '';
-      return '<div style="font-size:12px;margin-top:4px;"><strong>'+g+'</strong>'+(mv?' — motivo da nota: '+mv:'')+(pf?'<br>Faz muito bem: '+pf:'')+(ct?'<br>Continuar fazendo: '+ct:'')+'</div>';
+      var pf=gestorField(o,g,'pontoForte'),ct=gestorField(o,g,'continuar'),mv=gestorField(o,g,'motivo'),ml=gestorField(o,g,'melhorar');
+      var dimsTxt=OO_NOTAS_GESTOR.map(function(d){
+        var dv=gestorDim(o,g,d.key);
+        if(dv.nota===null||dv.nota===undefined) return '';
+        return '<br>'+d.label+' <strong>'+dv.nota+'/10</strong>'+(dv.motivo?' — '+dv.motivo:'');
+      }).join('');
+      if(!pf&&!ct&&!mv&&!ml&&!dimsTxt) return '';
+      return '<div style="font-size:12px;margin-top:4px;"><strong>'+g+'</strong>'+(mv?' — motivo da nota de confiança: '+mv:'')+dimsTxt+(pf?'<br>Faz muito bem: '+pf:'')+(ct?'<br>Continuar fazendo: '+ct:'')+(ml?'<br>Poderia melhorar: '+ml:'')+'</div>';
     }).join('');
     h+='<div class="hist-item">'+
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'+
@@ -2288,19 +2333,27 @@ function renderAgenteOO(){
   oneOnOnes.forEach(function(o){
     if(!o.mes) return;
     var s=semestreDe(o.mes);
-    if(!semMap[s.chave]) semMap[s.chave]={label:s.label,ano:s.ano,sem:s.sem,gestores:{},textos:{}};
+    if(!semMap[s.chave]) semMap[s.chave]={label:s.label,ano:s.ano,sem:s.sem,gestores:{},textos:{},dims:{}};
     GESTORES.forEach(function(g){
       var v=notaGestorVal(o,g);
       if(v!==null&&v!==undefined){
         if(!semMap[s.chave].gestores[g]) semMap[s.chave].gestores[g]=[];
         semMap[s.chave].gestores[g].push(v);
       }
-      var pf=gestorField(o,g,'pontoForte'),ct=gestorField(o,g,'continuar');
-      if(pf||ct){
-        if(!semMap[s.chave].textos[g]) semMap[s.chave].textos[g]={forte:[],continuar:[]};
+      var pf=gestorField(o,g,'pontoForte'),ct=gestorField(o,g,'continuar'),ml=gestorField(o,g,'melhorar');
+      if(pf||ct||ml){
+        if(!semMap[s.chave].textos[g]) semMap[s.chave].textos[g]={forte:[],continuar:[],melhorar:[]};
         if(pf) semMap[s.chave].textos[g].forte.push(pf);
         if(ct) semMap[s.chave].textos[g].continuar.push(ct);
+        if(ml) semMap[s.chave].textos[g].melhorar.push(ml);
       }
+      OO_NOTAS_GESTOR.forEach(function(d){
+        var dv=gestorDim(o,g,d.key);
+        if(dv.nota===null||dv.nota===undefined) return;
+        if(!semMap[s.chave].dims[g]) semMap[s.chave].dims[g]={};
+        if(!semMap[s.chave].dims[g][d.key]) semMap[s.chave].dims[g][d.key]=[];
+        semMap[s.chave].dims[g][d.key].push(dv.nota);
+      });
     });
   });
   var chavesSem=Object.keys(semMap).sort(function(a,b){var sa=semMap[a],sb=semMap[b];return sa.ano-sb.ano||sa.sem-sb.sem;});
@@ -2352,9 +2405,21 @@ function renderAgenteOO(){
       }
       linha+='</div>';
       var txt=semMap[atualChave].textos[g];
-      if(txt&&(txt.forte.length||txt.continuar.length)){
+      if(txt&&(txt.forte.length||txt.continuar.length||(txt.melhorar&&txt.melhorar.length))){
         if(txt.forte.length) linha+='<div style="font-size:12px;color:#2E7D32;margin:2px 0 2px 14px;">✅ Faz muito bem: '+txt.forte.join(' · ')+'</div>';
         if(txt.continuar.length) linha+='<div style="font-size:12px;color:#1565C0;margin:0 0 6px 14px;">💡 Continuar fazendo: '+txt.continuar.join(' · ')+'</div>';
+        if(txt.melhorar&&txt.melhorar.length) linha+='<div style="font-size:12px;color:#E65100;margin:0 0 6px 14px;">📌 Colaboradores acham que poderia melhorar: '+txt.melhorar.join(' · ')+'</div>';
+      }
+      var dimsG=(semMap[atualChave].dims||{})[g]||{};
+      var piorKey=null,piorMedia=null;
+      OO_NOTAS_GESTOR.forEach(function(d){
+        var arr=dimsG[d.key]||[];
+        if(!arr.length) return;
+        var media=arr.reduce(function(a,b){return a+b;},0)/arr.length;
+        if(piorMedia===null||media<piorMedia){piorMedia=media;piorKey=d.key;}
+      });
+      if(piorKey!==null){
+        linha+='<div style="font-size:12px;color:#C62828;margin:0 0 6px 14px;">🔧 O que '+g+' pode melhorar: <strong>'+(OO_NOTAS_GESTOR.filter(function(d){return d.key===piorKey;})[0].label.replace('De 0 a 10, ',''))+'</strong> ('+piorMedia.toFixed(1)+'/10) — '+OO_SUGESTOES_GESTOR[piorKey]+'</div>';
       }
       linhas.push(linha);
     });
