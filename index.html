@@ -766,7 +766,7 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
     <div id="oo-desempenho-wrap" style="margin-bottom:1rem;"></div>
 
     <div style="font-size:12px;font-weight:700;color:#1565C0;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">Confiança em cada gestor <span style="font-weight:400;color:#546E7A;text-transform:none;">— conhecimento técnico e suporte, de 0 a 10</span></div>
-    <div id="oo-gestores-wrap" class="fg fg3" style="margin-bottom:1rem;"></div>
+    <div id="oo-gestores-wrap" style="margin-bottom:1rem;"></div>
 
     <div style="margin-bottom:.5rem;"><label class="lbl">Observações gerais</label><textarea id="oo-obs" rows="2" placeholder="Outras observações..."></textarea></div>
 
@@ -1846,6 +1846,17 @@ function calcMediaDesempenho(o){
   if(!vals.length) return null;
   return vals.reduce(function(a,b){return a+b;},0)/vals.length;
 }
+function notaGestorVal(o,g){
+  var v=o.notasGestores?o.notasGestores[g]:null;
+  if(v===null||v===undefined) return null;
+  if(typeof v==='object') return (v.nota===null||v.nota===undefined)?null:v.nota;
+  return v;
+}
+function gestorField(o,g,campo){
+  var v=o.notasGestores?o.notasGestores[g]:null;
+  if(!v||typeof v!=='object') return '';
+  return v[campo]||'';
+}
 
 function setViewOO(v){
   viewOO=v;
@@ -1932,7 +1943,16 @@ function abrirModalOO(colabId){
 
   var wrapG=document.getElementById('oo-gestores-wrap');
   wrapG.innerHTML=GESTORES.map(function(g){
-    return '<div><label class="lbl">'+g+'</label><input type="number" min="0" max="10" step="1" id="oo-nota-gestor-'+g.replace(/\s+/g,'_')+'"/></div>';
+    var gid=g.replace(/\s+/g,'_');
+    return '<div style="border:1px solid #E3E7FB;border-radius:10px;padding:10px 12px;margin-bottom:10px;background:#FAFBFF;">'+
+      '<div style="font-weight:700;color:#1a1a2e;margin-bottom:8px;">'+g+'</div>'+
+      '<div style="display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:end;margin-bottom:8px;">'+
+        '<div><label class="lbl">Nota (0-10)</label><input type="number" min="0" max="10" step="1" id="oo-nota-gestor-'+gid+'"/></div>'+
+        '<div><label class="lbl">Por que essa nota?</label><input type="text" id="oo-motivo-gestor-'+gid+'" placeholder="Motivo da nota"/></div>'+
+      '</div>'+
+      '<div style="margin-bottom:8px;"><label class="lbl">O que ele faz muito bem por você e pela equipe?</label><textarea id="oo-pontoforte-gestor-'+gid+'" rows="2"></textarea></div>'+
+      '<div><label class="lbl">O que você gostaria que ele continuasse fazendo?</label><textarea id="oo-continuar-gestor-'+gid+'" rows="2"></textarea></div>'+
+    '</div>';
   }).join('');
 
   document.getElementById('oo-obs').value='';
@@ -1951,9 +1971,15 @@ function salvarOO(){
 
   var notasGestores={};
   GESTORES.forEach(function(g){
-    var el=document.getElementById('oo-nota-gestor-'+g.replace(/\s+/g,'_'));
+    var gid=g.replace(/\s+/g,'_');
+    var el=document.getElementById('oo-nota-gestor-'+gid);
     var v=el.value!==''?parseFloat(el.value):null;
-    notasGestores[g]=(v===null||isNaN(v))?null:Math.max(0,Math.min(10,v));
+    notasGestores[g]={
+      nota:(v===null||isNaN(v))?null:Math.max(0,Math.min(10,v)),
+      motivo:(document.getElementById('oo-motivo-gestor-'+gid)||{}).value?document.getElementById('oo-motivo-gestor-'+gid).value.trim():'',
+      pontoForte:(document.getElementById('oo-pontoforte-gestor-'+gid)||{}).value?document.getElementById('oo-pontoforte-gestor-'+gid).value.trim():'',
+      continuar:(document.getElementById('oo-continuar-gestor-'+gid)||{}).value?document.getElementById('oo-continuar-gestor-'+gid).value.trim():''
+    };
   });
 
   var notaGestaoRaw=document.getElementById('oo-nota-gestao').value;
@@ -2014,8 +2040,13 @@ function abrirHistoricoOO(colabId){
   var h='';
   lista.forEach(function(o){
     var notasG=GESTORES.map(function(g){
-      var v=o.notasGestores?o.notasGestores[g]:null;
+      var v=notaGestorVal(o,g);
       return '<span style="display:inline-block;margin-right:10px;">'+g+': <strong>'+(v!==null&&v!==undefined?v:'—')+'</strong></span>';
+    }).join('');
+    var detalhesG=GESTORES.map(function(g){
+      var pf=gestorField(o,g,'pontoForte'),ct=gestorField(o,g,'continuar'),mv=gestorField(o,g,'motivo');
+      if(!pf&&!ct&&!mv) return '';
+      return '<div style="font-size:12px;margin-top:4px;"><strong>'+g+'</strong>'+(mv?' — motivo da nota: '+mv:'')+(pf?'<br>Faz muito bem: '+pf:'')+(ct?'<br>Continuar fazendo: '+ct:'')+'</div>';
     }).join('');
     h+='<div class="hist-item">'+
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'+
@@ -2037,6 +2068,7 @@ function abrirHistoricoOO(colabId){
         '</div>';
       })()+
       '<div style="font-size:12px;color:#546E7A;margin-bottom:6px;">'+notasG+'</div>'+
+      (detalhesG?'<div style="background:#FAFBFF;border-radius:8px;padding:8px 10px;margin-bottom:6px;">'+detalhesG+'</div>':'')+
       OO_PERGUNTAS.filter(function(p){return o.respostas&&o.respostas[p.key];}).map(function(p){
         return '<div style="font-size:12px;margin-top:4px;"><strong>'+p.label+'</strong><br>'+o.respostas[p.key]+'</div>';
       }).join('')+
@@ -2054,7 +2086,7 @@ function renderOOPainel(){
   var doMes=oneOnOnes.filter(function(o){return o.mes===mesAtual;});
   var hMes='';
   GESTORES.forEach(function(g){
-    var notas=doMes.map(function(o){return o.notasGestores?o.notasGestores[g]:null;}).filter(function(v){return v!==null&&v!==undefined;});
+    var notas=doMes.map(function(o){return notaGestorVal(o,g);}).filter(function(v){return v!==null&&v!==undefined;});
     var media=notas.length?(notas.reduce(function(a,b){return a+b;},0)/notas.length):null;
     var pct=media!==null?(media/10*100):0;
     var cor=media===null?'#CFD8DC':(media>=7?'#2E7D32':media>=5?'#E65100':'#C62828');
@@ -2072,7 +2104,7 @@ function renderOOPainel(){
     var s=semestreDe(o.mes);
     if(!semMap[s.chave]) semMap[s.chave]={label:s.label,ano:s.ano,sem:s.sem,gestores:{}};
     GESTORES.forEach(function(g){
-      var v=o.notasGestores?o.notasGestores[g]:null;
+      var v=notaGestorVal(o,g);
       if(v===null||v===undefined) return;
       if(!semMap[s.chave].gestores[g]) semMap[s.chave].gestores[g]=[];
       semMap[s.chave].gestores[g].push(v);
@@ -2256,12 +2288,19 @@ function renderAgenteOO(){
   oneOnOnes.forEach(function(o){
     if(!o.mes) return;
     var s=semestreDe(o.mes);
-    if(!semMap[s.chave]) semMap[s.chave]={label:s.label,ano:s.ano,sem:s.sem,gestores:{}};
+    if(!semMap[s.chave]) semMap[s.chave]={label:s.label,ano:s.ano,sem:s.sem,gestores:{},textos:{}};
     GESTORES.forEach(function(g){
-      var v=o.notasGestores?o.notasGestores[g]:null;
-      if(v===null||v===undefined) return;
-      if(!semMap[s.chave].gestores[g]) semMap[s.chave].gestores[g]=[];
-      semMap[s.chave].gestores[g].push(v);
+      var v=notaGestorVal(o,g);
+      if(v!==null&&v!==undefined){
+        if(!semMap[s.chave].gestores[g]) semMap[s.chave].gestores[g]=[];
+        semMap[s.chave].gestores[g].push(v);
+      }
+      var pf=gestorField(o,g,'pontoForte'),ct=gestorField(o,g,'continuar');
+      if(pf||ct){
+        if(!semMap[s.chave].textos[g]) semMap[s.chave].textos[g]={forte:[],continuar:[]};
+        if(pf) semMap[s.chave].textos[g].forte.push(pf);
+        if(ct) semMap[s.chave].textos[g].continuar.push(ct);
+      }
     });
   });
   var chavesSem=Object.keys(semMap).sort(function(a,b){var sa=semMap[a],sb=semMap[b];return sa.ano-sb.ano||sa.sem-sb.sem;});
@@ -2312,6 +2351,11 @@ function renderAgenteOO(){
         }
       }
       linha+='</div>';
+      var txt=semMap[atualChave].textos[g];
+      if(txt&&(txt.forte.length||txt.continuar.length)){
+        if(txt.forte.length) linha+='<div style="font-size:12px;color:#2E7D32;margin:2px 0 2px 14px;">✅ Faz muito bem: '+txt.forte.join(' · ')+'</div>';
+        if(txt.continuar.length) linha+='<div style="font-size:12px;color:#1565C0;margin:0 0 6px 14px;">💡 Continuar fazendo: '+txt.continuar.join(' · ')+'</div>';
+      }
       linhas.push(linha);
     });
   }
