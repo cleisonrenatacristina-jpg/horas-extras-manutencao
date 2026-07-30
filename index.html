@@ -1930,27 +1930,33 @@ function renderOOLista(){
   tbody.innerHTML=h;
 }
 
-function abrirModalOO(colabId){
+function abrirModalOO(colabId,ooId){
   var c=getCol(colabId);
   if(!c) return;
+  var o=ooId?oneOnOnes.filter(function(x){return x.id===ooId;})[0]:null;
+
   document.getElementById('overlay-oo').classList.add('show');
-  document.getElementById('oo-titulo').textContent='1x1 — '+c.nome;
-  document.getElementById('oo-id').value='';
+  document.getElementById('oo-titulo').textContent=(o?'Editar 1x1 — ':'1x1 — ')+c.nome;
+  document.getElementById('oo-id').value=o?o.id:'';
   document.getElementById('oo-colab-id').value=colabId;
-  document.getElementById('oo-mes').value=mesAtualStr();
-  document.getElementById('oo-data').value=new Date().toISOString().split('T')[0];
+  document.getElementById('oo-mes').value=o?o.mes:mesAtualStr();
+  document.getElementById('oo-data').value=o?o.data:new Date().toISOString().split('T')[0];
 
   var selGestor=document.getElementById('oo-gestor-resp');
   selGestor.innerHTML=GESTORES.map(function(g){return '<option value="'+g+'">'+g+'</option>';}).join('');
+  if(o) selGestor.value=o.gestorResponsavel;
 
   var wrapQ=document.getElementById('oo-perguntas-wrap');
   wrapQ.innerHTML=OO_PERGUNTAS.map(function(p){
     return '<div><label class="lbl">'+p.label+'</label><textarea id="oo-q-'+p.key+'" rows="2"></textarea></div>';
   }).join('');
+  if(o&&o.respostas) OO_PERGUNTAS.forEach(function(p){
+    document.getElementById('oo-q-'+p.key).value=o.respostas[p.key]||'';
+  });
 
-  document.getElementById('oo-nota-gestao').value='';
-  document.getElementById('oo-motivo-nota-gestao').value='';
-  document.getElementById('oo-nota-retencao').value='';
+  document.getElementById('oo-nota-gestao').value=(o&&o.notaGestao!==null&&o.notaGestao!==undefined)?o.notaGestao:'';
+  document.getElementById('oo-motivo-nota-gestao').value=o?(o.motivoNotaGestao||''):'';
+  document.getElementById('oo-nota-retencao').value=(o&&o.notaRetencao!==null&&o.notaRetencao!==undefined)?o.notaRetencao:'';
 
   var wrapD=document.getElementById('oo-desempenho-wrap');
   wrapD.innerHTML=getNotasAplicaveis(c).map(function(n){
@@ -1960,6 +1966,12 @@ function abrirModalOO(colabId){
       '<input type="text" id="oo-nd-'+n.key+'-motivo" placeholder="Por que essa nota?"/>'+
     '</div>';
   }).join('');
+  if(o&&o.notasDesempenho) getNotasAplicaveis(c).forEach(function(n){
+    var nd=o.notasDesempenho[n.key];
+    if(!nd) return;
+    document.getElementById('oo-nd-'+n.key).value=(nd.nota!==null&&nd.nota!==undefined)?nd.nota:'';
+    document.getElementById('oo-nd-'+n.key+'-motivo').value=nd.motivo||'';
+  });
 
   var wrapG=document.getElementById('oo-gestores-wrap');
   wrapG.innerHTML=GESTORES.map(function(g){
@@ -1981,8 +1993,27 @@ function abrirModalOO(colabId){
       '<div><label class="lbl">O que poderia melhorar no dia a dia com você e a equipe?</label><textarea id="oo-melhorar-gestor-'+gid+'" rows="2"></textarea></div>'+
     '</div>';
   }).join('');
+  if(o&&o.notasGestores) GESTORES.forEach(function(g){
+    var gid=g.replace(/\s+/g,'_');
+    var ng=o.notasGestores[g];
+    if(!ng) return;
+    if(typeof ng!=='object'){
+      document.getElementById('oo-nota-gestor-'+gid).value=ng;
+      return;
+    }
+    document.getElementById('oo-nota-gestor-'+gid).value=(ng.nota!==null&&ng.nota!==undefined)?ng.nota:'';
+    document.getElementById('oo-motivo-gestor-'+gid).value=ng.motivo||'';
+    document.getElementById('oo-pontoforte-gestor-'+gid).value=ng.pontoForte||ng.continuar||'';
+    document.getElementById('oo-melhorar-gestor-'+gid).value=ng.melhorar||'';
+    OO_NOTAS_GESTOR.forEach(function(d){
+      var dv=ng.dims?ng.dims[d.key]:null;
+      if(!dv) return;
+      document.getElementById('oo-gd-'+gid+'-'+d.key).value=(dv.nota!==null&&dv.nota!==undefined)?dv.nota:'';
+      document.getElementById('oo-gd-'+gid+'-'+d.key+'-motivo').value=dv.motivo||'';
+    });
+  });
 
-  document.getElementById('oo-obs').value='';
+  document.getElementById('oo-obs').value=o?(o.obs||''):'';
 }
 
 function salvarOO(){
@@ -2038,8 +2069,9 @@ function salvarOO(){
     };
   });
 
+  var idExistente=document.getElementById('oo-id').value;
   var obj={
-    id:nextOneOnOneId++,
+    id:idExistente?parseInt(idExistente,10):nextOneOnOneId++,
     colaboradorId:colabId,
     mes:mes,
     data:data,
@@ -2052,11 +2084,17 @@ function salvarOO(){
     notasGestores:notasGestores,
     obs:document.getElementById('oo-obs').value.trim()
   };
-  oneOnOnes.push(obj);
+  if(idExistente){
+    var idx=oneOnOnes.findIndex(function(x){return x.id===obj.id;});
+    if(idx>=0) oneOnOnes[idx]=obj; else oneOnOnes.push(obj);
+  } else {
+    oneOnOnes.push(obj);
+  }
   fecharOverlay('overlay-oo');
   render();
   renderOOLista();
-  alert('✅ 1x1 registrado com sucesso!');
+  if(window._ooHistColabId===colabId) abrirHistoricoOO(colabId);
+  alert(idExistente?'✅ 1x1 atualizado com sucesso!':'✅ 1x1 registrado com sucesso!');
 }
 
 function excluirOO(id){
@@ -2095,7 +2133,10 @@ function abrirHistoricoOO(colabId){
     h+='<div class="hist-item">'+
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'+
         '<div style="font-weight:600;">'+mesLabelOO(o.mes)+' <span style="font-weight:400;color:#546E7A;font-size:12px;">· '+o.data.split('-').reverse().join('/')+' · entrevistado por '+o.gestorResponsavel+'</span></div>'+
-        '<button class="btn-sm btn-d" onclick="excluirOO('+o.id+')">Excluir</button>'+
+        '<span style="display:flex;gap:6px;">'+
+          '<button class="btn-sm btn-e" onclick="abrirModalOO('+o.colaboradorId+','+o.id+')">✏️ Editar / completar</button>'+
+          '<button class="btn-sm btn-d" onclick="excluirOO('+o.id+')">Excluir</button>'+
+        '</span>'+
       '</div>'+
       '<div style="font-size:12px;color:#546E7A;margin-bottom:6px;"><strong style="color:#1a1a2e;">Nota para a gestão:</strong> '+(o.notaGestao!==null&&o.notaGestao!==undefined?o.notaGestao:'—')+(o.motivoNotaGestao?' — '+o.motivoNotaGestao:'')+' &nbsp;|&nbsp; <strong style="color:#1a1a2e;">Retenção:</strong> '+(o.notaRetencao!==null&&o.notaRetencao!==undefined?o.notaRetencao:'—')+'</div>'+
       (function(){
