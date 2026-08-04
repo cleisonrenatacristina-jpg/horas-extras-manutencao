@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Intenção de Férias — Manutenção LivUp</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#F0F2F5;color:#1a1a2e;min-height:100vh;-webkit-font-smoothing:antialiased;}
+.header{background:#1565C0;color:#fff;padding:1rem 1.25rem;font-size:16px;font-weight:700;letter-spacing:-.01em;box-shadow:0 2px 10px rgba(13,71,161,.18);}
+.wrap{max-width:520px;margin:0 auto;padding:1.25rem;}
+.card{background:#fff;border-radius:14px;border:1px solid #EEF1F4;box-shadow:0 1px 2px rgba(16,24,40,.04);padding:1.25rem;margin-bottom:1rem;}
+.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bottom:4px;}
+.fg{display:grid;gap:12px;margin-bottom:1rem;}
+.fg2{grid-template-columns:1fr 1fr;}
+input,select,textarea{padding:9px 11px;border:1px solid #DCE1E6;border-radius:9px;font-size:14px;color:#1a1a2e;outline:none;background:#fff;width:100%;font-family:inherit;}
+input:focus,select:focus,textarea:focus{border-color:#1565C0;box-shadow:0 0 0 3px rgba(21,101,192,.12);}
+textarea{resize:vertical;line-height:1.5;}
+.btn{padding:11px 18px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;border:none;width:100%;background:#1565C0;color:#fff;box-shadow:0 2px 6px rgba(21,101,192,.25);}
+.btn:active{transform:scale(.98);}
+.btn:disabled{opacity:.6;}
+.warn{background:#FFF3E0;border:1px solid #FFCC80;border-radius:9px;padding:10px 12px;font-size:12.5px;color:#E65100;margin-bottom:1rem;display:none;line-height:1.6;}
+.ok{background:#E8F5E9;border:1px solid #A5D6A7;border-radius:9px;padding:10px 12px;font-size:13px;color:#2E7D32;margin-bottom:1rem;display:none;}
+.err{background:#FFEBEE;border:1px solid #EF9A9A;border-radius:9px;padding:10px 12px;font-size:13px;color:#C62828;margin-bottom:1rem;display:none;}
+.badge{padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:600;display:inline-block;}
+.bg{background:#E8F5E9;color:#2E7D32;}
+.bo{background:#FFF3E0;color:#E65100;}
+.br{background:#FFEBEE;color:#C62828;}
+.hist-item{padding:9px 0;border-bottom:1px solid #F2F4F6;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px;}
+.hist-item:last-child{border-bottom:none;}
+.muted{color:#546E7A;font-size:12px;}
+</style>
+</head>
+<body>
+<div class="header">🏖️ Intenção de Férias — Manutenção LivUp</div>
+<div class="wrap">
+  <div class="card" id="card-form">
+    <div class="lbl" style="font-size:13px;margin-bottom:10px;color:#1a1a2e;">Preencha sua intenção de férias. O gestor vai analisar e aprovar conforme a escala — <strong>não pode haver dois colaboradores de férias no mesmo período.</strong></div>
+    <div id="carregando" class="muted">Carregando...</div>
+    <div id="form-body" style="display:none;">
+      <div class="fg" id="colab-fixo-wrap" style="display:none;">
+        <div><span class="lbl">Colaborador</span><div id="colab-fixo-nome" style="font-weight:700;font-size:14px;"></div></div>
+      </div>
+      <div class="fg" id="colab-select-wrap" style="display:none;">
+        <div><label class="lbl">Seu nome</label><select id="f-colab"></select></div>
+      </div>
+      <div class="fg fg2">
+        <div><label class="lbl">Data início *</label><input type="date" id="f-inicio"/></div>
+        <div><label class="lbl">Data fim *</label><input type="date" id="f-fim"/></div>
+      </div>
+      <div id="f-conflito" class="warn"></div>
+      <div class="fg fg2">
+        <div><label class="lbl">Turno</label><select id="f-turno"></select></div>
+        <div><label class="lbl">Horário da jornada</label><input id="f-horario" placeholder="Ex: 07:00 às 16:20"/></div>
+      </div>
+      <div class="fg">
+        <div><label class="lbl">Observação (opcional)</label><textarea id="f-obs" rows="2" placeholder="Alguma observação..."></textarea></div>
+      </div>
+      <div id="f-erro" class="err"></div>
+      <div id="f-ok" class="ok"></div>
+      <button class="btn" id="btn-enviar" onclick="enviarFerias()">Enviar solicitação</button>
+    </div>
+  </div>
+
+  <div class="card" id="card-minhas" style="display:none;">
+    <div class="lbl" style="font-size:13px;margin-bottom:8px;color:#1a1a2e;">Minhas solicitações</div>
+    <div id="minhas-lista"></div>
+  </div>
+</div>
+
+<script>
+var API_URL = 'https://script.google.com/macros/s/AKfycbz0pTNmc1E6Qq0irUQ6npCUQeAeRjUNJ9oS_hGfQceMfBBi_wwTFKQIqZkk7tvGFkkb2g/exec';
+var TURNOS_FERIAS = ["Manhã","Tarde","Noite","Central","Comercial"];
+var _dados=null, _colabId=null;
+
+function qs(k){ return new URLSearchParams(location.search).get(k); }
+function fmtData(iso){ if(!iso) return '—'; var p=iso.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+
+function periodosSobrepoe(aIni,aFim,bIni,bFim){
+  if(!aIni||!aFim||!bIni||!bFim) return false;
+  return aIni<=bFim && aFim>=bIni;
+}
+
+function carregar(){
+  fetch(API_URL+'?action=get')
+  .then(function(r){return r.json();})
+  .then(function(res){
+    if(!res.ok||!res.data){ mostrarErroCarregar(); return; }
+    _dados=res.data;
+    if(!_dados.feriasIntencoes) _dados.feriasIntencoes=[];
+    if(_dados.nextFeriasId===undefined) _dados.nextFeriasId=1;
+    montarForm();
+  })
+  .catch(mostrarErroCarregar);
+}
+
+function mostrarErroCarregar(){
+  document.getElementById('carregando').textContent='⚠ Não foi possível carregar. Verifique sua conexão e recarregue a página.';
+}
+
+function montarForm(){
+  var idParam=qs('id');
+  var ativos=(_dados.colaboradores||[]).filter(function(c){return c.ativo!==false;});
+
+  var selT=document.getElementById('f-turno');
+  TURNOS_FERIAS.forEach(function(t){var o=document.createElement('option');o.value=t;o.textContent=t;selT.appendChild(o);});
+
+  if(idParam){
+    var c=ativos.find(function(x){return String(x.id)===String(idParam);});
+    if(!c){ document.getElementById('carregando').textContent='⚠ Link inválido ou colaborador inativo.'; return; }
+    _colabId=c.id;
+    document.getElementById('colab-fixo-wrap').style.display='block';
+    document.getElementById('colab-fixo-nome').textContent=c.nome;
+  } else {
+    var sel=document.getElementById('f-colab');
+    ativos.forEach(function(c){var o=document.createElement('option');o.value=c.id;o.textContent=c.nome;sel.appendChild(o);});
+    document.getElementById('colab-select-wrap').style.display='block';
+    _colabId=ativos.length?ativos[0].id:null;
+    sel.onchange=function(){ _colabId=parseInt(sel.value); atualizarConflito(); renderMinhas(); };
+  }
+
+  document.getElementById('f-inicio').oninput=atualizarConflito;
+  document.getElementById('f-fim').oninput=atualizarConflito;
+
+  document.getElementById('carregando').style.display='none';
+  document.getElementById('form-body').style.display='block';
+  renderMinhas();
+}
+
+function atualizarConflito(){
+  var box=document.getElementById('f-conflito');
+  var ini=document.getElementById('f-inicio').value;
+  var fim=document.getElementById('f-fim').value;
+  if(!ini||!fim||!_colabId){ box.style.display='none'; return; }
+  var conf=_dados.feriasIntencoes.find(function(o){
+    return o.status==='aprovado' && o.colaboradorId!==_colabId && periodosSobrepoe(ini,fim,o.dataInicio,o.dataFim);
+  });
+  if(conf){
+    box.style.display='block';
+    box.innerHTML='⚠ Esse período já está reservado por <strong>'+(conf.colaboradorNome||'—')+'</strong> (aprovado, '+fmtData(conf.dataInicio)+' a '+fmtData(conf.dataFim)+'). Ninguém pode tirar férias junto — considere escolher outro período. Você ainda pode enviar, mas a aprovação depende de ajustar as datas.';
+  } else box.style.display='none';
+}
+
+function renderMinhas(){
+  if(!_colabId) return;
+  var minhas=_dados.feriasIntencoes.filter(function(f){return f.colaboradorId===_colabId;})
+    .sort(function(a,b){return (b.criadoEm||'').localeCompare(a.criadoEm||'');});
+  var wrap=document.getElementById('card-minhas');
+  var lista=document.getElementById('minhas-lista');
+  if(!minhas.length){ wrap.style.display='none'; return; }
+  wrap.style.display='block';
+  var h='';
+  minhas.forEach(function(f){
+    var badge=f.status==='aprovado'?'<span class="badge bg">✅ Aprovado</span>':f.status==='rejeitado'?'<span class="badge br">❌ Rejeitado</span>':'<span class="badge bo">⌛ Pendente</span>';
+    h+='<div class="hist-item"><span>'+fmtData(f.dataInicio)+' a '+fmtData(f.dataFim)+'</span>'+badge+'</div>';
+  });
+  lista.innerHTML=h;
+}
+
+function enviarFerias(){
+  var erro=document.getElementById('f-erro'); erro.style.display='none';
+  var ok=document.getElementById('f-ok'); ok.style.display='none';
+  var colabId=_colabId;
+  var ini=document.getElementById('f-inicio').value;
+  var fim=document.getElementById('f-fim').value;
+  var turno=document.getElementById('f-turno').value;
+  var horario=document.getElementById('f-horario').value.trim();
+  var obs=document.getElementById('f-obs').value.trim();
+
+  if(!colabId){ erro.textContent='Selecione seu nome.'; erro.style.display='block'; return; }
+  if(!ini||!fim){ erro.textContent='Informe data início e data fim.'; erro.style.display='block'; return; }
+  if(fim<ini){ erro.textContent='A data fim não pode ser antes da data início.'; erro.style.display='block'; return; }
+  if(!horario){ erro.textContent='Informe o horário da sua jornada.'; erro.style.display='block'; return; }
+
+  var btn=document.getElementById('btn-enviar');
+  btn.disabled=true; btn.textContent='Enviando...';
+
+  fetch(API_URL+'?action=get')
+  .then(function(r){return r.json();})
+  .then(function(res){
+    if(!res.ok||!res.data) throw new Error('offline');
+    var d=res.data;
+    if(!d.feriasIntencoes) d.feriasIntencoes=[];
+    if(d.nextFeriasId===undefined) d.nextFeriasId=1;
+    var col=(d.colaboradores||[]).find(function(c){return c.id===colabId;});
+    var novo={
+      id:d.nextFeriasId++,
+      colaboradorId:colabId,
+      colaboradorNome:col?col.nome:'',
+      dataInicio:ini,
+      dataFim:fim,
+      turno:turno,
+      horarioJornada:horario,
+      substituto:'',
+      status:'pendente',
+      obs:obs,
+      criadoEm:new Date().toISOString(),
+      decididoEm:null
+    };
+    d.feriasIntencoes.push(novo);
+    return fetch(API_URL,{method:'POST',body:JSON.stringify({action:'set_all',dados:d})})
+      .then(function(r){return r.json();})
+      .then(function(r2){
+        if(!r2.ok) throw new Error('save-failed');
+        _dados=d;
+        ok.textContent='✅ Solicitação enviada! Aguarde a aprovação do gestor.';
+        ok.style.display='block';
+        document.getElementById('f-inicio').value='';
+        document.getElementById('f-fim').value='';
+        document.getElementById('f-horario').value='';
+        document.getElementById('f-obs').value='';
+        renderMinhas();
+      });
+  })
+  .catch(function(){
+    erro.textContent='⚠ Não foi possível enviar. Verifique sua conexão e tente novamente.';
+    erro.style.display='block';
+  })
+  .finally(function(){
+    btn.disabled=false; btn.textContent='Enviar solicitação';
+  });
+}
+
+carregar();
+</script>
+</body>
+</html>
