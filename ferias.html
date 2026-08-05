@@ -71,7 +71,7 @@ textarea{resize:vertical;line-height:1.5;}
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbz0pTNmc1E6Qq0irUQ6npCUQeAeRjUNJ9oS_hGfQceMfBBi_wwTFKQIqZkk7tvGFkkb2g/exec';
 var TURNOS_FERIAS = ["Manhã","Tarde","Noite","Central","Comercial"];
-var _dados=null, _colabId=null;
+var _dados=null, _colabId=null, _conflitoAtual=null;
 
 function qs(k){ return new URLSearchParams(location.search).get(k); }
 function fmtData(iso){ if(!iso) return '—'; var p=iso.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
@@ -129,16 +129,24 @@ function montarForm(){
 
 function atualizarConflito(){
   var box=document.getElementById('f-conflito');
+  var btn=document.getElementById('btn-enviar');
   var ini=document.getElementById('f-inicio').value;
   var fim=document.getElementById('f-fim').value;
-  if(!ini||!fim||!_colabId){ box.style.display='none'; return; }
+  _conflitoAtual=null;
+  if(!ini||!fim||!_colabId){ box.style.display='none'; btn.disabled=false; return; }
   var conf=_dados.feriasIntencoes.find(function(o){
-    return o.status==='aprovado' && o.colaboradorId!==_colabId && periodosSobrepoe(ini,fim,o.dataInicio,o.dataFim);
+    return o.status!=='rejeitado' && o.colaboradorId!==_colabId && periodosSobrepoe(ini,fim,o.dataInicio,o.dataFim);
   });
   if(conf){
+    _conflitoAtual=conf;
+    box.className='err';
     box.style.display='block';
-    box.innerHTML='⚠ Esse período já está reservado por <strong>'+(conf.colaboradorNome||'—')+'</strong> (aprovado, '+fmtData(conf.dataInicio)+' a '+fmtData(conf.dataFim)+'). Ninguém pode tirar férias junto — considere escolher outro período. Você ainda pode enviar, mas a aprovação depende de ajustar as datas.';
-  } else box.style.display='none';
+    box.innerHTML='❌ Essas datas já foram marcadas por <strong>'+(conf.colaboradorNome||'—')+'</strong> ('+(conf.status==='aprovado'?'aprovado':'aguardando aprovação')+', '+fmtData(conf.dataInicio)+' a '+fmtData(conf.dataFim)+'). Não é permitido marcar férias na mesma data que outro colaborador — escolha outro período.';
+    btn.disabled=true;
+  } else {
+    box.style.display='none';
+    btn.disabled=false;
+  }
 }
 
 function renderMinhas(){
@@ -171,6 +179,7 @@ function enviarFerias(){
   if(!ini||!fim){ erro.textContent='Informe data início e data fim.'; erro.style.display='block'; return; }
   if(fim<ini){ erro.textContent='A data fim não pode ser antes da data início.'; erro.style.display='block'; return; }
   if(!horario){ erro.textContent='Informe o horário da sua jornada.'; erro.style.display='block'; return; }
+  if(_conflitoAtual){ erro.textContent='Essas datas já estão marcadas por outro colaborador. Escolha outro período.'; erro.style.display='block'; return; }
 
   var btn=document.getElementById('btn-enviar');
   btn.disabled=true; btn.textContent='Enviando...';
@@ -178,10 +187,17 @@ function enviarFerias(){
   fetch(API_URL+'?action=get')
   .then(function(r){return r.json();})
   .then(function(res){
-    if(!res.ok||!res.data) throw new Error('offline');
+    if(!res.ok||!res.data) throw {tipo:'offline'};
     var d=res.data;
     if(!d.feriasIntencoes) d.feriasIntencoes=[];
     if(d.nextFeriasId===undefined) d.nextFeriasId=1;
+
+    // Trava final: alguém pode ter marcado essa mesma data entre o carregamento da página e o envio agora
+    var conf=d.feriasIntencoes.find(function(o){
+      return o.status!=='rejeitado' && o.colaboradorId!==colabId && periodosSobrepoe(ini,fim,o.dataInicio,o.dataFim);
+    });
+    if(conf) throw {tipo:'conflito', conf:conf};
+
     var col=(d.colaboradores||[]).find(function(c){return c.id===colabId;});
     var novo={
       id:d.nextFeriasId++,
@@ -201,7 +217,7 @@ function enviarFerias(){
     return fetch(API_URL,{method:'POST',body:JSON.stringify({action:'set_all',dados:d})})
       .then(function(r){return r.json();})
       .then(function(r2){
-        if(!r2.ok) throw new Error('save-failed');
+        if(!r2.ok) throw {tipo:'offline'};
         _dados=d;
         ok.textContent='✅ Solicitação enviada! Aguarde a aprovação do gestor.';
         ok.style.display='block';
@@ -209,15 +225,25 @@ function enviarFerias(){
         document.getElementById('f-fim').value='';
         document.getElementById('f-horario').value='';
         document.getElementById('f-obs').value='';
+        atualizarConflito();
         renderMinhas();
       });
   })
-  .catch(function(){
-    erro.textContent='⚠ Não foi possível enviar. Verifique sua conexão e tente novamente.';
-    erro.style.display='block';
+  .catch(function(e){
+    if(e && e.tipo==='conflito'){
+      var conf=e.conf;
+      erro.innerHTML='❌ Essas datas acabaram de ser marcadas por <strong>'+(conf.colaboradorNome||'—')+'</strong> ('+fmtData(conf.dataInicio)+' a '+fmtData(conf.dataFim)+'). Escolha outro período.';
+      erro.style.display='block';
+      if(!_dados.feriasIntencoes.some(function(x){return x.id===conf.id;})) _dados.feriasIntencoes.push(conf);
+      atualizarConflito();
+    } else {
+      erro.textContent='⚠ Não foi possível enviar. Verifique sua conexão e tente novamente.';
+      erro.style.display='block';
+      btn.disabled=false;
+    }
   })
   .finally(function(){
-    btn.disabled=false; btn.textContent='Enviar solicitação';
+    btn.textContent='Enviar solicitação';
   });
 }
 

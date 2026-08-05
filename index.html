@@ -581,19 +581,43 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
         <button class="btn-sm" id="ferias-f-aprovado" onclick="setFiltroFerias('aprovado')" style="background:#ECEFF1;color:#546E7A;">Aprovadas</button>
         <button class="btn-sm" id="ferias-f-rejeitado" onclick="setFiltroFerias('rejeitado')" style="background:#ECEFF1;color:#546E7A;">Rejeitadas</button>
       </div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button class="btn-sm btn-e" id="ferias-view-lista" onclick="setViewFerias('lista')" style="font-weight:700;background:#E3F2FD;color:#1565C0;">📋 Lista</button>
+        <button class="btn-sm" id="ferias-view-crono" onclick="setViewFerias('cronograma')" style="background:#ECEFF1;color:#546E7A;">📅 Cronograma</button>
+      </div>
       <button class="btn btn-e" style="background:#E3F2FD;color:#1565C0;" onclick="abrirLinksFerias()">🔗 Links para colaboradores</button>
       <button class="btn btn-p" onclick="abrirModalFerias(null)">+ Lançar férias</button>
     </div>
 
-    <div class="section">
-      <div style="overflow-x:auto;">
-        <table>
-          <thead><tr>
-            <th>Colaborador</th><th>Início</th><th>Fim</th><th class="ta-c">Dias</th><th>Turno</th><th>Horário</th><th>Substituto</th><th class="ta-c">Status</th><th class="ta-c">Ações</th>
-          </tr></thead>
-          <tbody id="tbody-ferias"></tbody>
-        </table>
-        <div id="ferias-vazia" style="display:none;" class="empty">Nenhuma solicitação de férias encontrada.</div>
+    <div id="ferias-sub-lista">
+      <div class="section">
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr>
+              <th>Colaborador</th><th>Início</th><th>Fim</th><th class="ta-c">Dias</th><th>Turno</th><th>Horário</th><th>Substituto</th><th class="ta-c">Status</th><th class="ta-c">Ações</th>
+            </tr></thead>
+            <tbody id="tbody-ferias"></tbody>
+          </table>
+          <div id="ferias-vazia" style="display:none;" class="empty">Nenhuma solicitação de férias encontrada.</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="ferias-sub-cronograma" style="display:none;">
+      <div class="section" style="padding:1.1rem;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:1rem;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button class="btn-sm" onclick="mudarMesCrono(-1)">◀</button>
+            <input type="month" id="crono-mes" onchange="renderCronogramaFerias()" style="max-width:160px;"/>
+            <button class="btn-sm" onclick="mudarMesCrono(1)">▶</button>
+          </div>
+          <div style="font-size:12px;color:#546E7A;">🟩 Aprovado · 🟧 Pendente · <span style="color:#C62828;font-weight:700;">⚠ conflito entre pedidos</span></div>
+        </div>
+        <div id="crono-conflitos" style="display:none;"></div>
+        <div style="overflow-x:auto;">
+          <div id="crono-grid"></div>
+        </div>
+        <div id="crono-vazio" class="empty" style="display:none;">Nenhuma férias registrada para este mês.</div>
       </div>
     </div>
   </div>
@@ -1129,6 +1153,7 @@ var viewOO         = 'lista';
 var feriasIntencoes = [];
 var nextFeriasId    = 1;
 var filtroFerias     = 'todas';
+var viewFerias        = 'lista';
 var TURNOS_FERIAS = ["Manhã","Tarde","Noite","Central","Comercial"];
 
 // Notas de desempenho — aplicam pra todo mundo
@@ -3790,6 +3815,107 @@ function setFiltroFerias(f){
   renderFerias();
 }
 
+function setViewFerias(v){
+  viewFerias=v;
+  document.getElementById('ferias-sub-lista').style.display = v==='lista'?'block':'none';
+  document.getElementById('ferias-sub-cronograma').style.display = v==='cronograma'?'block':'none';
+  var bL=document.getElementById('ferias-view-lista'), bC=document.getElementById('ferias-view-crono');
+  bL.style.background = v==='lista'?'#E3F2FD':'#ECEFF1'; bL.style.color=v==='lista'?'#1565C0':'#546E7A'; bL.style.fontWeight=v==='lista'?'700':'400';
+  bC.style.background = v==='cronograma'?'#E3F2FD':'#ECEFF1'; bC.style.color=v==='cronograma'?'#1565C0':'#546E7A'; bC.style.fontWeight=v==='cronograma'?'700':'400';
+  if(v==='cronograma') renderCronogramaFerias();
+}
+
+function mudarMesCrono(delta){
+  var inp=document.getElementById('crono-mes');
+  var partes=(inp.value||'').split('-');
+  var ano=partes[0]?parseInt(partes[0]):new Date().getFullYear();
+  var mes=partes[1]?parseInt(partes[1]):(new Date().getMonth()+1);
+  mes+=delta;
+  if(mes<1){mes=12;ano--;} else if(mes>12){mes=1;ano++;}
+  inp.value=ano+'-'+String(mes).padStart(2,'0');
+  renderCronogramaFerias();
+}
+
+function renderCronogramaFerias(){
+  var inp=document.getElementById('crono-mes');
+  if(!inp) return;
+  if(!inp.value){
+    var hoje=new Date();
+    inp.value=hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0');
+  }
+  var partes=inp.value.split('-');
+  var ano=parseInt(partes[0]), mes=parseInt(partes[1]);
+  var totalDias=new Date(ano,mes,0).getDate();
+  var mesIni=ano+'-'+String(mes).padStart(2,'0')+'-01';
+  var mesFim=ano+'-'+String(mes).padStart(2,'0')+'-'+String(totalDias).padStart(2,'0');
+
+  var relevantes=feriasIntencoes.filter(function(f){
+    return f.status!=='rejeitado' && periodosSobrepoe(f.dataInicio,f.dataFim,mesIni,mesFim);
+  }).sort(function(a,b){return (a.dataInicio||'').localeCompare(b.dataInicio||'');});
+
+  var grid=document.getElementById('crono-grid');
+  var vazio=document.getElementById('crono-vazio');
+  var conflitosBox=document.getElementById('crono-conflitos');
+
+  if(!relevantes.length){
+    grid.innerHTML=''; vazio.style.display='block'; conflitosBox.style.display='none';
+    return;
+  }
+  vazio.style.display='none';
+
+  // conflitos: qualquer par de colaboradores diferentes cujo período se sobrepõe (mesmo pendente vs pendente)
+  var conflitos=[];
+  relevantes.forEach(function(f,i){
+    relevantes.forEach(function(g,j){
+      if(j<=i) return;
+      if(f.colaboradorId!==g.colaboradorId && periodosSobrepoe(f.dataInicio,f.dataFim,g.dataInicio,g.dataFim)){
+        conflitos.push([f,g]);
+      }
+    });
+  });
+  var idsConflito={};
+  conflitos.forEach(function(par){ idsConflito[par[0].id]=true; idsConflito[par[1].id]=true; });
+
+  var headerCols='150px repeat('+totalDias+',minmax(18px,1fr))';
+  var h='<div style="display:grid;grid-template-columns:'+headerCols+';gap:1px;font-size:10px;color:#546E7A;margin-bottom:4px;">';
+  h+='<div></div>';
+  for(var d=1; d<=totalDias; d++){ h+='<div style="text-align:center;">'+d+'</div>'; }
+  h+='</div>';
+
+  relevantes.forEach(function(f){
+    var col=getCol(f.colaboradorId);
+    var nome=f.colaboradorNome||(col?col.nome:'—');
+    var ini=f.dataInicio<mesIni?1:parseInt(f.dataInicio.split('-')[2]);
+    var fim=f.dataFim>mesFim?totalDias:parseInt(f.dataFim.split('-')[2]);
+    var cor=f.status==='aprovado'?'#66BB6A':'#FFB74D';
+    var borda=idsConflito[f.id]?'2px solid #C62828':'none';
+    h+='<div style="display:grid;grid-template-columns:'+headerCols+';gap:1px;align-items:center;margin-bottom:3px;">';
+    h+='<div style="font-size:12px;padding-right:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+nome+(idsConflito[f.id]?' ⚠':'')+'</div>';
+    for(var d=1; d<=totalDias; d++){
+      if(d>=ini && d<=fim){
+        h+='<div style="background:'+cor+';border:'+borda+';height:16px;border-radius:2px;" title="'+nome+': '+fmtData(f.dataInicio)+' a '+fmtData(f.dataFim)+'"></div>';
+      } else {
+        h+='<div></div>';
+      }
+    }
+    h+='</div>';
+  });
+  grid.innerHTML=h;
+
+  if(conflitos.length){
+    var texto=conflitos.map(function(par){
+      var nomeA=par[0].colaboradorNome||'—', nomeB=par[1].colaboradorNome||'—';
+      var iniConf=par[0].dataInicio>par[1].dataInicio?par[0].dataInicio:par[1].dataInicio;
+      var fimConf=par[0].dataFim<par[1].dataFim?par[0].dataFim:par[1].dataFim;
+      return '⚠ <strong>'+nomeA+'</strong> e <strong>'+nomeB+'</strong> se sobrepõem de '+fmtData(iniConf)+' a '+fmtData(fimConf);
+    }).join('<br>');
+    conflitosBox.innerHTML='<div class="alerta-info" style="display:block;">'+texto+'</div>';
+    conflitosBox.style.display='block';
+  } else {
+    conflitosBox.style.display='none';
+  }
+}
+
 function renderFerias(){
   var buscaEl=document.getElementById('ferias-busca');
   var busca=buscaEl?buscaEl.value.toLowerCase():'';
@@ -3806,7 +3932,7 @@ function renderFerias(){
   var tbody=document.getElementById('tbody-ferias');
   var vazia=document.getElementById('ferias-vazia');
   if(!tbody){ renderFeriasAlertas(); return; }
-  if(!lista.length){ tbody.innerHTML=''; if(vazia) vazia.style.display='block'; renderFeriasAlertas(); return; }
+  if(!lista.length){ tbody.innerHTML=''; if(vazia) vazia.style.display='block'; renderFeriasAlertas(); if(viewFerias==='cronograma') renderCronogramaFerias(); return; }
   if(vazia) vazia.style.display='none';
 
   var h='';
@@ -3836,6 +3962,7 @@ function renderFerias(){
   });
   tbody.innerHTML=h;
   renderFeriasAlertas();
+  if(viewFerias==='cronograma') renderCronogramaFerias();
 }
 
 // Alerta de férias aprovadas chegando (próximos 15 dias) — banner na aba, card no dashboard e badge na aba de navegação
@@ -3952,8 +4079,8 @@ function salvarFerias(){
   if(status==='aprovado'){
     var conf=conflitoFerias({id:excluirId,colaboradorId:colabId,dataInicio:ini,dataFim:fim},excluirId);
     if(conf){
-      alert('❌ Não é possível aprovar: '+(conf.colaboradorNome||'—')+' já está com férias aprovadas nesse período ('+fmtData(conf.dataInicio)+' a '+fmtData(conf.dataFim)+'). Ninguém pode tirar férias junto.');
-      return;
+      var seguir=confirm('⚠ Conflito: '+(conf.colaboradorNome||'—')+' já está com férias aprovadas nesse período ('+fmtData(conf.dataInicio)+' a '+fmtData(conf.dataFim)+').\n\nComo gestor, você pode aprovar mesmo assim. Confirmar?');
+      if(!seguir) return;
     }
   }
 
@@ -3991,8 +4118,8 @@ function decidirFerias(id,novoStatus){
   if(novoStatus==='aprovado'){
     var conf=conflitoFerias(f,id);
     if(conf){
-      alert('❌ Não é possível aprovar: '+(conf.colaboradorNome||'—')+' já está com férias aprovadas nesse período ('+fmtData(conf.dataInicio)+' a '+fmtData(conf.dataFim)+'). Edite as datas antes de aprovar.');
-      return;
+      var seguir=confirm('⚠ Conflito: '+(conf.colaboradorNome||'—')+' já está com férias aprovadas nesse período ('+fmtData(conf.dataInicio)+' a '+fmtData(conf.dataFim)+').\n\nComo gestor, você pode aprovar mesmo assim. Confirmar?');
+      if(!seguir) return;
     }
   }
   if(novoStatus==='rejeitado'){
@@ -4123,6 +4250,33 @@ render = function(){
 setInterval(function(){
   if(_carregado) salvarLS();
 }, 60000);
+
+// ===== SINCRONIZAÇÃO DE FÉRIAS =====
+// Solicitações enviadas pelo colaborador via ferias.html só existem na planilha remota até essa
+// aba puxar de novo — sem isso, o autosave (acima) grava por cima com o array antigo (que não
+// conhece a solicitação nova) e ela é perdida. Busca a cada 20s e só ACRESCENTA o que for novo
+// (nunca remove nem sobrescreve o que já está local).
+function sincronizarFerias(){
+  if(!_carregado) return;
+  fetch(API_URL+'?action=get')
+  .then(function(r){return r.json();})
+  .then(function(res){
+    if(!res.ok||!res.data) return;
+    var remoto=res.data.feriasIntencoes||[];
+    var remotoNextId=res.data.nextFeriasId||1;
+    var meusIds={};
+    feriasIntencoes.forEach(function(f){meusIds[f.id]=true;});
+    var novos=remoto.filter(function(f){return !meusIds[f.id];});
+    if(novos.length){
+      feriasIntencoes=feriasIntencoes.concat(novos);
+      if(remotoNextId>nextFeriasId) nextFeriasId=remotoNextId;
+      render();
+      renderFerias();
+    }
+  })
+  .catch(function(){});
+}
+setInterval(sincronizarFerias, 20000);
 
 // Salva ao fechar/sair da aba
 window.addEventListener('beforeunload', function(){
