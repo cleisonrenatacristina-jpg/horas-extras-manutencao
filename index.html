@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="build-id" content="2026-08-07a"/>
 <title>Controle de Horas Extras — Manutenção 2026</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -127,6 +128,10 @@ label.lbl{display:block;font-size:12px;color:#546E7A;font-weight:600;margin-bott
     <div class="header-title">Controle de Horas Extras — Manutenção 2026</div>
     <div style="font-size:12px;opacity:.75;margin-top:2px;" id="hdr-save-status">Meta mensal: R$ 10.000,00</div>
   </div>
+  </div>
+  <div id="banner-nova-versao" style="display:none;background:#FFF3E0;color:#E65100;font-size:12.5px;font-weight:600;padding:6px 14px;border-radius:8px;align-items:center;gap:10px;">
+    🔄 Esta aba está desatualizada — dados novos de outras pessoas podem não aparecer aqui.
+    <button onclick="location.reload()" style="background:#E65100;color:#fff;border:none;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">Atualizar agora</button>
   </div>
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
     <button onclick="exportarPDF()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;" title="Gerar relatório PDF do período atual">
@@ -954,6 +959,7 @@ var NEXT_PERIODO_BASE = 3;
 
 // ===== GOOGLE SHEETS — BANCO DE DADOS NA NUVEM =====
 var API_URL = 'https://script.google.com/macros/s/AKfycbz0pTNmc1E6Qq0irUQ6npCUQeAeRjUNJ9oS_hGfQceMfBBi_wwTFKQIqZkk7tvGFkkb2g/exec';
+var BUILD_ID = document.querySelector('meta[name="build-id"]').content;
 var _salvando = false;
 var _pendenteSalvar = false;
 var _carregado = false;
@@ -4277,6 +4283,25 @@ function sincronizarFerias(){
   .catch(function(){});
 }
 setInterval(sincronizarFerias, 20000);
+
+// ===== AVISO DE VERSÃO DESATUALIZADA =====
+// Uma aba deixada aberta por horas/dias continua rodando o código antigo — o autosave dela
+// sobrescreve o array inteiro por cima de qualquer dado novo (ex: uma férias enviada por outra
+// pessoa) que essa aba não conhece. Como não dá pra "atualizar" código já carregado, a única
+// solução é avisar a pessoa pra recarregar a página quando existir uma versão mais nova no ar.
+function verificarNovaVersao(){
+  fetch(location.pathname+'?_='+Date.now(),{cache:'no-store'})
+  .then(function(r){return r.text();})
+  .then(function(html){
+    var m=html.match(/name="build-id"\s+content="([^"]+)"/);
+    if(m && m[1] && m[1]!==BUILD_ID){
+      var b=document.getElementById('banner-nova-versao');
+      if(b) b.style.display='flex';
+    }
+  })
+  .catch(function(){});
+}
+setInterval(verificarNovaVersao, 300000);
 
 // Salva ao fechar/sair da aba
 window.addEventListener('beforeunload', function(){
